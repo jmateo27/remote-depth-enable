@@ -2,24 +2,18 @@ from lab1 import Lab1
 import aioble
 import bluetooth
 import asyncio
-import struct
 from sys import exit
 
-# Define UUIDs for the service and characteristic
-_SERVICE_UUID = bluetooth.UUID(0x1848)
-_CHARACTERISTIC_UUID = bluetooth.UUID(0x2A6E)
+IAM = "Receiver"
 
-# IAM = "Central" # Change to 'Peripheral' or 'Central'
-IAM = "Peripheral"
-
-if IAM not in ['Peripheral','Central']:
-    print("IAM must be either Peripheral or Central")
+if IAM not in ['Receiver','Transmitter']:
+    print("IAM must be either Receiver or Transmitter")
     exit()
 
-if IAM == "Central":
-    IAM_SENDING_TO = "Peripheral"
+if IAM == "Receiver":
+    IAM_SENDING_TO = "Transmitter"
 else:
-    IAM_SENDING_TO = "Central"
+    IAM_SENDING_TO = "Receiver"
 
 MESSAGE = f"Hello from {IAM}!"
 
@@ -78,37 +72,48 @@ async def receive_data_task(characteristic):
             print(f"Error receiving data: {e}")
             break
 
-async def run_peripheral_mode():
-    """ Run the peripheral mode """
+async def run_receiver_mode():
+    """ Run the receiver mode """
 
-    # Set up the Bluetooth service and characteristic
-    ble_service = aioble.Service(BLE_SVC_UUID)
-    characteristic = aioble.Characteristic(
-        ble_service,
-        BLE_CHARACTERISTIC_UUID,
-        read=True,
-        notify=True,
-        write=True,
-        capture=True,
-    )
-    aioble.register_services(ble_service)
-
-    print(f"{BLE_NAME} starting to advertise")
-
+    # Start scanning for a device with the matching service UUID
     while True:
-        async with await aioble.advertise(
-            BLE_ADVERTISING_INTERVAL,
-            name=BLE_NAME,
-            services=[BLE_SVC_UUID],
-            appearance=BLE_APPEARANCE) as connection:
-            print(f"{BLE_NAME} connected to another device: {connection.device}")
+        device = await ble_scan()
+
+        if device is None:
+            continue
+        print(f"device is: {device}, name is {device.name()}")
+
+        try:
+            print(f"Connecting to {device.name()}")
+            connection = await device.device.connect()
+
+        except asyncio.TimeoutError:
+            print("Timeout during connection")
+            continue
+
+        print(f"{IAM} connected to {connection}")
+
+        # Discover services
+        async with connection:
+            try:
+                service = await connection.service(BLE_SVC_UUID)
+                characteristic = await service.characteristic(BLE_CHARACTERISTIC_UUID)
+            except (asyncio.TimeoutError, AttributeError):
+                print("Timed out discovering services/characteristics")
+                continue
+            except Exception as e:
+                print(f"Error discovering services {e}")
+                await connection.disconnect()
+                continue
 
             tasks = [
-                asyncio.create_task(receive_data_task(connection, characteristic)),
+                asyncio.create_task(receive_data_task(characteristic)),
             ]
             await asyncio.gather(*tasks)
-            print(f"{IAM} disconnected")
-            continue
+
+            await connection.disconnected()
+            print(f"{BLE_NAME} disconnected from {device.name()}")
+            break
 
 async def ble_scan():
     """ Scan for a BLE device with the matching service UUID """
@@ -126,7 +131,7 @@ async def main():
     """ Main function """
     while True:
         tasks = [
-            asyncio.create_task(run_peripheral_mode()),
+            asyncio.create_task(run_receiver_mode()),
         ]
 
         await asyncio.gather(*tasks)
