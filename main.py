@@ -53,16 +53,16 @@ async def receive_data_task(characteristic):
             if rMessage == "EnableON DepthON":
                 process.setDepthHigh()
                 process.setEnableHigh()
-            else if rMessage == "EnableOFF DepthON"
+            elif rMessage == "EnableOFF DepthON":
                 process.setDepthHigh()
                 process.setEnableLow()
-            else if rMessage == "EnableON DepthOFF"
+            elif rMessage == "EnableON DepthOFF":
                 process.setDepthLow()
                 process.setEnableHigh()
-            else if rMessage == "EnableOFF DepthOFF"
+            elif rMessage == "EnableOFF DepthOFF":
                 process.setDepthLow()
                 process.setEnableLow()
-            else
+            else:
                 print("Reveiced Message did not match any of the four on/off possibilities. Error in communciation")
                 continue
 
