@@ -64,13 +64,11 @@ async def receive_data_task(characteristic):
                 process.setEnableLow()
             else
                 print("Reveiced Message did not match any of the four on/off possibilities. Error in communciation")
-                break
+                continue
 
             if data:
                 print(f"{IAM} received: {rMessage}, count: {message_count} \n{process.enable.value} {process.depth.value}")
-                await characteristic.write(encode_message("Got it"))
-                await asyncio.sleep(0.5)
-
+                await asyncio.sleep(0.01)
             message_count += 1
 
         except asyncio.TimeoutError:
@@ -110,7 +108,7 @@ async def run_peripheral_mode():
             ]
             await asyncio.gather(*tasks)
             print(f"{IAM} disconnected")
-            break
+            continue
 
 async def ble_scan():
     """ Scan for a BLE device with the matching service UUID """
