@@ -16,6 +16,13 @@ else:
 
 MESSAGE = f"Hello from {IAM}!"
 
+SEND_MESSAGES = [
+                "EnableOFF DepthOFF",
+                "EnableOFF DepthON",
+                "EnableON DepthOFF",
+                "EnableON DepthON"
+                ]
+
 # Bluetooth parameters
 BLE_NAME = f"{IAM}"  # You can dynamically change this if you want unique names
 BLE_SVC_UUID = bluetooth.UUID(0x181A)
@@ -33,13 +40,10 @@ def encode_message(message):
     """ Encode a message to bytes """
     return message.encode('utf-8')
 
-def decode_message(message):
-    """ Decode a message from bytes """
-    return message.decode('utf-8')
-
 async def send_data_task(connection, characteristic):
     """ Send data to the connected device """
     global message_count
+    iter = 0
     while True:
         if not connection:
             print("error - no connection in send data")
@@ -48,24 +52,23 @@ async def send_data_task(connection, characteristic):
         if not characteristic:
             print("error no characteristic provided in send data")
             continue
-
-        message = f"{MESSAGE} {message_count}"
+        
+        sMessage = SEND_MESSAGES[iter]
+        iter += 1
+        if iter == 4:
+            iter = 0
         message_count +=1
-        print(f"sending {message}")
+        print(f"sending {sMessage}")
 
         try:
-            msg = encode_message(message)
+            msg = encode_message(sMessage)
             characteristic.write(msg)
-
-            await asyncio.sleep(0.5)
-            response = decode_message(characteristic.read())
-
-            print(f"{IAM} sent: {message}, response {response}")
+            
         except Exception as e:
             print(f"writing error {e}")
             continue
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.75)
 
 async def run_transmitter_mode():
     """ Run the transmitter mode """
@@ -102,15 +105,9 @@ async def run_transmitter_mode():
 async def main():
     """ Main function """
     while True:
-        if IAM == "Central":
-            tasks = [
-                asyncio.create_task(run_central_mode()),
-            ]
-        else:
-            tasks = [
-                asyncio.create_task(run_transmitter_mode()),
-            ]
-
+        tasks = [
+            asyncio.create_task(run_transmitter_mode())
+        ]
         await asyncio.gather(*tasks)
 
 asyncio.run(main())
