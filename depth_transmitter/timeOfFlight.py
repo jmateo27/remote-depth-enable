@@ -4,6 +4,9 @@ import time
 # VL53L0X I2C address 
 VL53L0X_ADDR = 0x29
 
+VL53L0X_SDA_PIN = 0x14
+VL53L0X_SCL_PIN = 0x15
+
 # Max Frequency
 MAX_OPERATING_FREQUENCY = 400000
 
@@ -41,7 +44,7 @@ class VL53L0X:
         return (dist_bytes[0]<< 8) | dist_bytes[1]
 
 if __name__ == "__main__":
-    tof = VL53L0X(sda_pin=14, scl_pin=15, id=0)
+    tof = VL53L0X(VL53L0X_SCL_PIN, VL53L0X_SDA_PIN, 0)
     while True:
         reading = tof.read_distance()
         print(reading)
