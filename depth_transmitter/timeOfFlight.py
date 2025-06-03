@@ -19,7 +19,7 @@ class VL53L0X:
         self.init_sensor()
 
     def write_reg(self, reg, value):
-        self.i2c.writeto_mem(VL53L0X_ADDR, reg, bytes([value]))
+        self.i2c.writeto_mem(VL53L0X_ADDR, reg, value)
 
     def read_reg(self, reg):
         return self.i2c.readfrom_mem(VL53L0X_ADDR, reg, 1)[0]
