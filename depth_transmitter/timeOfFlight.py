@@ -16,6 +16,14 @@ class VL53L0X:
                                 sda=machine.Pin(sda_pin),
                                 scl=machine.Pin(scl_pin),
                                 freq=MAX_OPERATING_FREQUENCY)
+        # Scan for connected I²C devices
+        devices = self.i2c.scan()
+
+        if devices:
+            print("I2C initialized successfully. Found devices:", devices)
+        else:
+            print("I2C initialized, but no devices found.")
+
         self.init_sensor()
 
     def write_reg(self, reg, value):
