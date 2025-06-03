@@ -27,7 +27,7 @@ class VL53L0X:
         self.init_sensor()
 
     def write_reg(self, reg, value):
-        self.i2c.writeto_mem(VL53L0X_ADDR, reg, value)
+        self.i2c.writeto_mem(VL53L0X_ADDR, reg, bytes([value]))
 
     def read_reg(self, reg):
         return self.i2c.readfrom_mem(VL53L0X_ADDR, reg, 1)[0]
@@ -58,7 +58,7 @@ class VL53L0X:
         return (dist_bytes[0]<< 8) | dist_bytes[1]
 
 if __name__ == "__main__":
-    tof = VL53L0X(VL53L0X_SCL_PIN, VL53L0X_SDA_PIN, 0)
+    tof = VL53L0X(VL53L0X_SCL_PIN, VL53L0X_SDA_PIN, 1)
     while True:
         reading = tof.read_distance()
         print(reading)
