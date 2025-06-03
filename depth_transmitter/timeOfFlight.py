@@ -28,11 +28,17 @@ class VL53L0X:
         # Basic initialization sequence (simplified)
         try: 
             self.write_reg(0x88, 0x00)
+            print('1')
             self.write_reg(0x80, 0x01)
+            print('2')
             self.write_reg(0xFF, 0x01)
+            print('3')
             self.write_reg(0x00, 0x00)
+            print('4')
             self.write_reg(0x91, 0x3c)
+            print('5')
             self.write_reg(0xFF, 0x00)
+            print('6')
             self.write_reg(0x80, 0x00)
         except:
             raise RuntimeError("Failed to initialize VL53L0X")
