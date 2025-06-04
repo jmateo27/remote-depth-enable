@@ -1,13 +1,11 @@
-from machine import Timer
-from bluetooth import BLE, UUID, FLAG_READ | FLAG_WRITE | FLAG_NOTIFY
 import bluetooth
 import struct
 import time
 
 IAM = "Transmitter"
 BLE_NAME = IAM
-BLE_SVC_UUID = UUID(0x181A)
-BLE_CHARACTERISTIC_UUID = UUID(0x2A6E)
+BLE_SVC_UUID = bluetooth.UUID(0x181A)
+BLE_CHARACTERISTIC_UUID = bluetooth.UUID(0x2A6E)
 
 SEND_MESSAGES = [
     "EnableOFF DepthOFF",
@@ -18,7 +16,7 @@ SEND_MESSAGES = [
 
 class BLEPeripheral:
     def __init__(self):
-        self.ble = BLE()
+        self.ble = bluetooth.BLE()
         self.ble.active(True)
         self.ble.irq(self.bt_irq)
         self.conn_handle = None
@@ -28,8 +26,9 @@ class BLEPeripheral:
         self._advertise()
 
     def _register_services(self):
-        # Define service
-        self.tx = (BLE_CHARACTERISTIC_UUID, FLAG_READ | FLAG_WRITE | FLAG_NOTIFY)
+        # Combine flags here, not in import
+        flags = bluetooth.FLAG_READ | bluetooth.FLAG_WRITE | bluetooth.FLAG_NOTIFY
+        self.tx = (BLE_CHARACTERISTIC_UUID, flags)
         self.svc = (BLE_SVC_UUID, (self.tx,))
         ((self.tx_handle,),) = self.ble.gatts_register_services((self.svc,))
 
