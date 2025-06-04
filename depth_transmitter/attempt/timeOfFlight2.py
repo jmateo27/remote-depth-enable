@@ -26,7 +26,7 @@ isShortRange = True
 threshold = 0.3  # meters
 
 # Rolling average buffer params
-ROLLING_WINDOW_SIZE = 5
+ROLLING_WINDOW_SIZE = 10
 rolling_buffer = []
 
 def rolling_average(buffer):
@@ -34,7 +34,9 @@ def rolling_average(buffer):
 
 while True:
     try:
-        raw_measurement = (tof.ping() - 25) / 1000.0  # Convert mm to meters and offset
+        raw_measurement = (tof.ping()) / 1000.0  # Convert mm to meters and offset
+        if isShortRange:
+            raw_measurement -= 0.025
         # Add new measurement to buffer
         rolling_buffer.append(raw_measurement)
         if len(rolling_buffer) > ROLLING_WINDOW_SIZE:
