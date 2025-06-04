@@ -4,11 +4,11 @@ import time
 # VL53L0X I2C address 
 VL53L0X_ADDR = 0x29
 
-VL53L0X_SDA_PIN = 2
-VL53L0X_SCL_PIN = 3
+VL53L0X_SDA_PIN = 4
+VL53L0X_SCL_PIN = 5
 
 # Max Frequency
-MAX_OPERATING_FREQUENCY = 400000
+MAX_OPERATING_FREQUENCY = 100000
 
 class VL53L0X:
     def __init__ (self, scl_pin, sda_pin, id):
@@ -42,9 +42,11 @@ class VL53L0X:
             self.write_reg(0xFF, 0x01)
             print('3')
             self.write_reg(0x00, 0x00)
+            val = self.read_reg(0x91)
             print('4')
-            self.write_reg(0x91, 0x3c)
+            self.write_reg(0x91, val)
             print('5')
+            self.write_reg(0x00, 0x01)
             self.write_reg(0xFF, 0x00)
             print('6')
             self.write_reg(0x80, 0x00)
@@ -54,11 +56,12 @@ class VL53L0X:
     def read_distance(self):
         self.write_reg(0x00, 0x01) #start single measurement
         time.sleep_ms(50)
-        dist_bytes = self.i2c.readfrom_mem(self.addr, 0x14, 2)
+        dist_bytes = self.i2c.readfrom_mem(VL53L0X_ADDR, 0x14, 4)
+        #return (dist_bytes[0] << 24) | (dist_bytes[1] << 16) | (dist_bytes[2] << 8) | dist_bytes[3]
         return (dist_bytes[0]<< 8) | dist_bytes[1]
 
 if __name__ == "__main__":
-    tof = VL53L0X(VL53L0X_SCL_PIN, VL53L0X_SDA_PIN, 1)
+    tof = VL53L0X(VL53L0X_SCL_PIN, VL53L0X_SDA_PIN, 0)
     while True:
         reading = tof.read_distance()
         print(reading)
