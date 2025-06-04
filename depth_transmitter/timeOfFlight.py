@@ -65,6 +65,7 @@ class TOF_Interface:
                         upwardFlag = True
                         break
                     print(f'Still measuring...{cur_avg}')
+                    self.rolling_buffer.clear()
                     time.sleep_ms(1000)
                         
                 if upwardFlag:
