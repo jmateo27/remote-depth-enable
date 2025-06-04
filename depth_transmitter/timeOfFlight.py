@@ -1,3 +1,4 @@
+
 import machine
 import time
 
@@ -50,7 +51,7 @@ class VL53L0X:
             self.write_reg(0xFF, 0x00)
             self.write_reg(0x80, 0x00)
 
-            # Recommended long-range tuning
+            # Long range tuning
             self.write_reg(0xFF, 0x01)
             self.write_reg(0x00, 0x00)
             self.write_reg(0x91, self._stop_variable)
@@ -58,25 +59,55 @@ class VL53L0X:
             self.write_reg(0xFF, 0x00)
             self.write_reg(0x80, 0x00)
 
-            # Set signal rate limit to 0.1 MCPS (default is 0.25)
-            self.write_reg16(0x44, int(0.1 * (1 << 7)))
+            # Signal rate limit = 0.25 MCPS
+            self.write_reg16(0x44, int(0.25 * (1 << 7)))
 
-            # VCSEL periods for long range
-            self.write_reg(0x50, 0x12)  # PRE_RANGE_CONFIG_VCSEL_PERIOD = 18 PCLKs
-            self.write_reg(0x70, 0x0E)  # FINAL_RANGE_CONFIG_VCSEL_PERIOD = 14 PCLKs
+            # SPAD setup skipped (optional)
 
-            # Increase timing budget (e.g., 200ms)
-            self.write_reg16(0x71, 0x00C8)
+            # Write default tuning settings
+            default_tuning = [
+                (0xFF, 0x01), (0x00, 0x00), (0xFF, 0x00), (0x09, 0x00),
+                (0x10, 0x00), (0x11, 0x00), (0x24, 0x01), (0x25, 0xFF),
+                (0x75, 0x00), (0xFF, 0x01), (0x4E, 0x2C), (0x48, 0x00),
+                (0x30, 0x20), (0xFF, 0x00), (0x30, 0x09), (0x54, 0x00),
+                (0x31, 0x04), (0x32, 0x03), (0x40, 0x83), (0x46, 0x25),
+                (0x60, 0x00), (0x27, 0x00), (0x50, 0x06), (0x51, 0x00),
+                (0x52, 0x96), (0x56, 0x08), (0x57, 0x30), (0x61, 0x00),
+                (0x62, 0x00), (0x64, 0x00), (0x65, 0x00), (0x66, 0xA0),
+                (0xFF, 0x01), (0x22, 0x32), (0x47, 0x14), (0x49, 0xFF),
+                (0x4A, 0x00), (0xFF, 0x00), (0x7A, 0x0A), (0x7B, 0x00),
+                (0x78, 0x21), (0xFF, 0x01), (0x23, 0x34), (0x42, 0x00),
+                (0x44, 0xFF), (0x45, 0x26), (0x46, 0x05), (0x40, 0x40),
+                (0x0E, 0x06), (0x20, 0x1A), (0x43, 0x40), (0xFF, 0x00),
+                (0x34, 0x03), (0x35, 0x44), (0xFF, 0x01), (0x31, 0x04),
+                (0x4B, 0x09), (0x4C, 0x05), (0x4D, 0x04), (0xFF, 0x00),
+                (0x44, 0x00), (0x45, 0x20), (0x47, 0x08), (0x48, 0x28),
+                (0x67, 0x00), (0x70, 0x04), (0x71, 0x01), (0x72, 0xFE),
+                (0x76, 0x00), (0x77, 0x00), (0xFF, 0x01), (0x0D, 0x01),
+                (0xFF, 0x00), (0x80, 0x01), (0x01, 0xF8), (0xFF, 0x01),
+                (0x8E, 0x01), (0x00, 0x01), (0xFF, 0x00), (0x80, 0x00),
+            ]
+            for reg, val in default_tuning:
+                self.write_reg(reg, val)
 
-            # Final reference calibrations
+            # Set GPIO interrupt config to new sample ready
+            self.write_reg(0x0A, 0x04)
+            val = self.read_reg(0x84)
+            self.write_reg(0x84, val & ~0x10)
+            self.write_reg(0x0B, 0x01)
+
+            # Do calibrations
+            self.write_reg(0x01, 0xE8)
             self._perform_single_ref_calibration(0x40)
+            self.write_reg(0x01, 0x01)
             self._perform_single_ref_calibration(0x00)
+            self.write_reg(0x01, 0xE8)
 
         except Exception as e:
             raise RuntimeError("Sensor init failed: " + str(e))
 
     def read_distance(self):
-        # Start single measurement
+        # Start measurement
         self.write_reg(0x80, 0x01)
         self.write_reg(0xFF, 0x01)
         self.write_reg(0x00, 0x00)
@@ -85,27 +116,23 @@ class VL53L0X:
         self.write_reg(0xFF, 0x00)
         self.write_reg(0x80, 0x00)
 
-        # Wait for measurement
+        # Wait for result
         start = time.ticks_ms()
         while not (self.read_reg(0x13) & 0x07):
             if time.ticks_diff(time.ticks_ms(), start) > 200:
                 raise RuntimeError("Timeout waiting for distance ready")
             time.sleep_ms(5)
 
-        distance = self.read_reg16(0x14 + 10)  # RESULT_RANGE_STATUS + 10
-        self.write_reg(0x0B, 0x01)  # Clear interrupt
+        distance = self.read_reg16(0x14 + 10)
+        self.write_reg(0x0B, 0x01)
         return distance
 
-# ---------------------------
-# Main Loop
-# ---------------------------
-
+# Main loop
 i2c = machine.I2C(I2C_ID, scl=machine.Pin(SCL_PIN), sda=machine.Pin(SDA_PIN), freq=I2C_FREQ)
 
 try:
     tof = VL53L0X(i2c)
     print("VL53L0X initialized.")
-
     while True:
         try:
             dist = tof.read_distance()
@@ -113,6 +140,5 @@ try:
         except Exception as e:
             print("Error reading distance:", e)
         time.sleep(1)
-
 except Exception as e:
     print("VL53L0X init failed:", e)
