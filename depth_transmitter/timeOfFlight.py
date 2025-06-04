@@ -64,8 +64,8 @@ class TOF_Interface:
                     if cur_avg < baseline - 0.01:
                         upwardFlag = True
                         break
-                    print('Still measuring...')
-                    time.sleep_ms(100)
+                    print(f'Still measuring...{cur_avg}')
+                    time.sleep_ms(1000)
                         
                 if upwardFlag:
                     print('Detected upward movement')
