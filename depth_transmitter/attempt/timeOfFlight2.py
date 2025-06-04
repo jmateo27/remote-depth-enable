@@ -28,14 +28,29 @@ tof.set_measurement_timing_budget(40000)
 # to the given value (in PCLKs). Longer periods increase the potential range of the sensor.
 # Valid values are (even numbers only):
 
-tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
-# tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 12)
-
-tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
-# tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 8)
+def setShortRange():
+    tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 12)
+    tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 8)
+    
+def setLongRange():
+    tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
+    tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
+    
+setShortRange()
+isShortRange = True
 
 while True:
     # Start ranging
-    print(tof.ping() - 50, "mm")
+    measurement = (tof.ping() - 25) / 1000.0
+    if measurement > 0.3 and isShortRange:
+        print("Setting to long range")
+        setLongRange()
+        isShortRange = False
+    elif measurement <= 0.3 and not isShortRange:
+        print("Setting to short range")
+        setShortRange()
+        isShortRange = True
+    
+    print(measurement, "m")
 
     time.sleep_ms(100)  # Short delay of 0.1 seconds to reduce CPU usage
