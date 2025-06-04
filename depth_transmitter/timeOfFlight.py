@@ -54,6 +54,7 @@ class TOF_Interface:
         while True:
             try:
                 baseline = self.getAverageMeasurement()
+                print(f"baseline: {baseline:.3f} m")
                 
                 upwardFlag = False
                 while True:
@@ -66,11 +67,10 @@ class TOF_Interface:
                     time.sleep_ms(50)
                         
                 if upwardFlag:
+                    print('Detected upward movement')
                     continue
 
                 self.sendPulse()
-
-                print(f"baseline: {baseline:.3f} m")
 
                 if self.isShortRange:
                     if baseline > self.threshold:
