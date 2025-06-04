@@ -36,6 +36,9 @@ class TOF_Interface:
             self.rolling_buffer.pop(0)  # Remove oldest
         return self.rolling_average()
     
+    def sendPulse(self):
+        print('Pulse!')
+
     def run_tof(self):
         self.setShortRange()
         self.isShortRange = True
@@ -50,20 +53,33 @@ class TOF_Interface:
 
         while True:
             try:
-                self.baseline = self.getAverageMeasurement()
+                baseline = self.getAverageMeasurement()
                 
-                while True
+                upwardFlag = False
+                while True:
+                    cur_avg = self.getAverageMeasurement()
+                    if cur_avg >= baseline + 0.025:
+                        break
+                    if cur_avg < baseline - 0.01:
+                        upwardFlag = True
+                        break
+                    time.sleep_ms(50)
+                        
+                if upwardFlag:
+                    continue
 
-                print(f"Avg: {avg_measurement:.3f} m")
+                self.sendPulse()
+
+                print(f"baseline: {baseline:.3f} m")
 
                 if self.isShortRange:
-                    if avg_measurement > self.threshold:
+                    if baseline > self.threshold:
                         print("Switching to long range")
                         self.setLongRange()
                         self.isShortRange = False
                         self.rolling_buffer.clear()  # Clear buffer to avoid stale data
                 else:
-                    if avg_measurement <= self.threshold:
+                    if baseline <= self.threshold:
                         print("Switching to short range")
                         self.setShortRange()
                         self.isShortRange = True
