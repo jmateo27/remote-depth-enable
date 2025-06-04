@@ -34,7 +34,7 @@ class TOF_Interface:
         self.rolling_buffer.append(self.getRawMeasurement())
         if len(self.rolling_buffer) > self.ROLLING_WINDOW_SIZE:
             self.rolling_buffer.pop(0)  # Remove oldest
-        return self.rolling_average(self.rolling_buffer)
+        return self.rolling_average()
     
     def run_tof(self):
         self.setShortRange()
@@ -44,10 +44,15 @@ class TOF_Interface:
         # Rolling average buffer params
         self.ROLLING_WINDOW_SIZE = 10
         self.rolling_buffer = []
+        
+        for i in range(10):
+            self.getAverageMeasurement()
 
         while True:
             try:
-                avg_measurement = self.getAverageMeasurement()
+                self.baseline = self.getAverageMeasurement()
+                
+                while True
 
                 print(f"Avg: {avg_measurement:.3f} m")
 
