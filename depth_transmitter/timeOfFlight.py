@@ -73,7 +73,7 @@ class VL53L0X:
             if time.ticks_diff(time.ticks_ms(), start) > 100:
                 raise RuntimeError("Timeout waiting for distance ready")
             time.sleep_ms(5)
-
+            
         distance = self.read_reg16(0x14 + 10)  # RESULT_RANGE_STATUS + 10
         self.write_reg(0x0B, 0x01)  # SYSTEM_INTERRUPT_CLEAR = 0x01
         return distance
