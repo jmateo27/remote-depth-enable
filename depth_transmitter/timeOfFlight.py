@@ -34,6 +34,7 @@ class TOF_Interface:
         self.rolling_buffer.append(self.getRawMeasurement())
         if len(self.rolling_buffer) > self.ROLLING_WINDOW_SIZE:
             self.rolling_buffer.pop(0)  # Remove oldest
+        return self.rolling_average(self.rolling_buffer)
     
     def run_tof(self):
         self.setShortRange()
