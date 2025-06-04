@@ -2,21 +2,18 @@ import machine
 import time
 
 VL53L0X_ADDR = 0x29
-VL53L0X_SDA_PIN = 4
-VL53L0X_SCL_PIN = 5
-MAX_OPERATING_FREQUENCY = 100_000
+SDA_PIN = 4
+SCL_PIN = 5
+I2C_ID = 0
+I2C_FREQ = 100_000
 
 class VL53L0X:
-    def __init__(self, scl_pin, sda_pin, id):
-        self.i2c = machine.I2C(id,
-                               sda=machine.Pin(sda_pin),
-                               scl=machine.Pin(scl_pin),
-                               freq=MAX_OPERATING_FREQUENCY)
+    def __init__(self, i2c):
+        self.i2c = i2c
         if VL53L0X_ADDR not in self.i2c.scan():
-            raise RuntimeError("VL53L0X not found on I2C bus.")
-        
+            raise RuntimeError("VL53L0X not found.")
+        self._stop_variable = 0
         self._init_sensor()
-        self._set_long_range_mode()
 
     def write_reg(self, reg, value):
         self.i2c.writeto_mem(VL53L0X_ADDR, reg, bytes([value]))
@@ -28,8 +25,21 @@ class VL53L0X:
         data = self.i2c.readfrom_mem(VL53L0X_ADDR, reg, 2)
         return (data[0] << 8) | data[1]
 
+    def write_reg16(self, reg, value):
+        high = (value >> 8) & 0xFF
+        low = value & 0xFF
+        self.i2c.writeto_mem(VL53L0X_ADDR, reg, bytes([high, low]))
+
+    def _perform_single_ref_calibration(self, vhv_init_byte):
+        self.write_reg(0x00, 0x01)
+        start = time.ticks_ms()
+        while not (self.read_reg(0x13) & 0x07):
+            if time.ticks_diff(time.ticks_ms(), start) > 200:
+                raise RuntimeError("Timeout during reference calibration")
+            time.sleep_ms(5)
+        self.write_reg(0x0B, 0x01)
+
     def _init_sensor(self):
-        # Basic ST-recommended init sequence
         try:
             self.write_reg(0x88, 0x00)
             self.write_reg(0x80, 0x01)
@@ -39,59 +49,70 @@ class VL53L0X:
             self.write_reg(0x00, 0x01)
             self.write_reg(0xFF, 0x00)
             self.write_reg(0x80, 0x00)
-        except:
-            raise RuntimeError("Failed VL53L0X static init")
 
-    def _set_long_range_mode(self):
-        try:
+            # Recommended long-range tuning
+            self.write_reg(0xFF, 0x01)
+            self.write_reg(0x00, 0x00)
+            self.write_reg(0x91, self._stop_variable)
+            self.write_reg(0x00, 0x01)
+            self.write_reg(0xFF, 0x00)
+            self.write_reg(0x80, 0x00)
+
+            # Set signal rate limit to 0.1 MCPS (default is 0.25)
+            self.write_reg16(0x44, int(0.1 * (1 << 7)))
+
+            # VCSEL periods for long range
             self.write_reg(0x50, 0x12)  # PRE_RANGE_CONFIG_VCSEL_PERIOD = 18 PCLKs
             self.write_reg(0x70, 0x0E)  # FINAL_RANGE_CONFIG_VCSEL_PERIOD = 14 PCLKs
-            self._write_u16(0x44, int(0.1 * (1 << 7)))  # signal_rate_limit = 0.1 MCPS
-            # Optional: increase timing budget
-            self._write_u16(0x71, 0x00FE)  # FINAL_RANGE_CONFIG_TIMEOUT_MACROP
-        except:
-            print("Failed to apply long range mode")
 
-    def _write_u16(self, reg, value):
-        high = (value >> 8) & 0xFF
-        low = value & 0xFF
-        self.i2c.writeto_mem(VL53L0X_ADDR, reg, bytes([high, low]))
+            # Increase timing budget (e.g., 200ms)
+            self.write_reg16(0x71, 0x00C8)
+
+            # Final reference calibrations
+            self._perform_single_ref_calibration(0x40)
+            self._perform_single_ref_calibration(0x00)
+
+        except Exception as e:
+            raise RuntimeError("Sensor init failed: " + str(e))
 
     def read_distance(self):
-        # Proper one-shot measurement startup sequence
+        # Start single measurement
         self.write_reg(0x80, 0x01)
         self.write_reg(0xFF, 0x01)
         self.write_reg(0x00, 0x00)
         self.write_reg(0x91, self._stop_variable)
-        self.write_reg(0x00, 0x01)  # SYSRANGE_START = start single shot
+        self.write_reg(0x00, 0x01)
         self.write_reg(0xFF, 0x00)
         self.write_reg(0x80, 0x00)
-        self.write_reg(0x00, 0x01)  # SYSRANGE_START = start single shot
 
-        # Wait for measurement to complete (poll interrupt status)
-        start = time.ticks_ms()
-        while not (self.read_reg(0x00) & 0x01):
-            if time.ticks_diff(time.ticks_ms(), start) > 100:
-                raise RuntimeError("Timeout waiting for distance ready")
-            time.sleep_ms(5)
-            
+        # Wait for measurement
         start = time.ticks_ms()
         while not (self.read_reg(0x13) & 0x07):
-            if time.ticks_diff(time.ticks_ms(), start) > 100:
+            if time.ticks_diff(time.ticks_ms(), start) > 200:
                 raise RuntimeError("Timeout waiting for distance ready")
             time.sleep_ms(5)
-        
+
         distance = self.read_reg16(0x14 + 10)  # RESULT_RANGE_STATUS + 10
-        self.write_reg(0x0B, 0x01)  # SYSTEM_INTERRUPT_CLEAR = 0x01
+        self.write_reg(0x0B, 0x01)  # Clear interrupt
         return distance
 
-# Run the test loop
-if __name__ == "__main__":
-    tof = VL53L0X(VL53L0X_SCL_PIN, VL53L0X_SDA_PIN, 0)
+# ---------------------------
+# Main Loop
+# ---------------------------
+
+i2c = machine.I2C(I2C_ID, scl=machine.Pin(SCL_PIN), sda=machine.Pin(SDA_PIN), freq=I2C_FREQ)
+
+try:
+    tof = VL53L0X(i2c)
+    print("VL53L0X initialized.")
+
     while True:
         try:
-            reading = tof.read_distance()
-            print(f"Distance: {reading/10.0} cm")
+            dist = tof.read_distance()
+            print(f"Distance: {dist} mm")
         except Exception as e:
             print("Error reading distance:", e)
         time.sleep(1)
+
+except Exception as e:
+    print("VL53L0X init failed:", e)
