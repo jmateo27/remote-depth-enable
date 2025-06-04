@@ -35,8 +35,7 @@ class VL53L0X:
             self.write_reg(0x80, 0x01)
             self.write_reg(0xFF, 0x01)
             self.write_reg(0x00, 0x00)
-            stop_variable = self.read_reg(0x91)
-            self.write_reg(0x91, stop_variable)
+            self._stop_variable = self.read_reg(0x91)
             self.write_reg(0x00, 0x01)
             self.write_reg(0xFF, 0x00)
             self.write_reg(0x80, 0x00)
@@ -59,16 +58,24 @@ class VL53L0X:
         self.i2c.writeto_mem(VL53L0X_ADDR, reg, bytes([high, low]))
 
     def read_distance(self):
-        self.write_reg(0x00, 0x01)  # SYSRANGE_START
-        # Wait for measurement to complete
+        # Proper one-shot measurement startup sequence
+        self.write_reg(0x80, 0x01)
+        self.write_reg(0xFF, 0x01)
+        self.write_reg(0x00, 0x00)
+        self.write_reg(0x91, self._stop_variable)
+        self.write_reg(0x00, 0x01)  # SYSRANGE_START = start single shot
+        self.write_reg(0xFF, 0x00)
+        self.write_reg(0x80, 0x00)
+
+        # Wait for measurement to complete (poll interrupt status)
         start = time.ticks_ms()
         while not (self.read_reg(0x13) & 0x07):
             if time.ticks_diff(time.ticks_ms(), start) > 100:
                 raise RuntimeError("Timeout waiting for distance ready")
             time.sleep_ms(5)
-        # Read result from RESULT_RANGE_STATUS + 10
-        distance = self.read_reg16(0x14 + 10)
-        self.write_reg(0x0B, 0x01)  # Clear interrupt
+
+        distance = self.read_reg16(0x14 + 10)  # RESULT_RANGE_STATUS + 10
+        self.write_reg(0x0B, 0x01)  # SYSTEM_INTERRUPT_CLEAR = 0x01
         return distance
 
 # Run the test loop
