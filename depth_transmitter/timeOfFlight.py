@@ -66,14 +66,21 @@ class VL53L0X:
         self.write_reg(0x00, 0x01)  # SYSRANGE_START = start single shot
         self.write_reg(0xFF, 0x00)
         self.write_reg(0x80, 0x00)
+        self.write_reg(0x00, 0x01)  # SYSRANGE_START = start single shot
 
         # Wait for measurement to complete (poll interrupt status)
+        start = time.ticks_ms()
+        while not (self.read_reg(0x00) & 0x01):
+            if time.ticks_diff(time.ticks_ms(), start) > 100:
+                raise RuntimeError("Timeout waiting for distance ready")
+            time.sleep_ms(5)
+            
         start = time.ticks_ms()
         while not (self.read_reg(0x13) & 0x07):
             if time.ticks_diff(time.ticks_ms(), start) > 100:
                 raise RuntimeError("Timeout waiting for distance ready")
             time.sleep_ms(5)
-            
+        
         distance = self.read_reg16(0x14 + 10)  # RESULT_RANGE_STATUS + 10
         self.write_reg(0x0B, 0x01)  # SYSTEM_INTERRUPT_CLEAR = 0x01
         return distance
@@ -84,7 +91,7 @@ if __name__ == "__main__":
     while True:
         try:
             reading = tof.read_distance()
-            print(f"Distance: {reading} mm")
+            print(f"Distance: {reading/10.0} cm")
         except Exception as e:
             print("Error reading distance:", e)
         time.sleep(1)
