@@ -28,11 +28,11 @@ tof.set_measurement_timing_budget(40000)
 # to the given value (in PCLKs). Longer periods increase the potential range of the sensor.
 # Valid values are (even numbers only):
 
-# tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
-tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 12)
+tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 18)
+# tof.set_Vcsel_pulse_period(tof.vcsel_period_type[0], 12)
 
-# tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
-tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 8)
+tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 14)
+# tof.set_Vcsel_pulse_period(tof.vcsel_period_type[1], 8)
 
 while True:
     # Start ranging
