@@ -2,6 +2,15 @@ import bluetooth
 import time
 from lab1 import Lab1
 
+# Manually define missing constants
+_IRQ_SCAN_RESULT = 5
+_IRQ_SCAN_DONE = 6
+_IRQ_PERIPHERAL_CONNECT = 7
+_IRQ_PERIPHERAL_DISCONNECT = 8
+_IRQ_GATTC_SERVICE_RESULT = 9
+_IRQ_GATTC_CHARACTERISTIC_RESULT = 11
+_IRQ_GATTC_NOTIFY = 18
+
 IAM = "Receiver"
 IAM_SENDING_TO = "Transmitter"
 BLE_NAME = IAM
@@ -27,36 +36,36 @@ class BLECentral:
         self.lab1 = Lab1()
 
     def bt_irq(self, event, data):
-        if event == bluetooth._IRQ_SCAN_RESULT:
+        if event == _IRQ_SCAN_RESULT:
             addr_type, addr, adv_type, rssi, adv_data = data
             name = self.decode_name(adv_data)
             if name == IAM_SENDING_TO:
                 print(f"Found device: {name}")
                 self.ble.gap_scan(None)  # Stop scanning
                 self.ble.gap_connect(addr_type, addr)
-        elif event == bluetooth._IRQ_SCAN_DONE:
+        elif event == _IRQ_SCAN_DONE:
             print("Scan completed.")
-        elif event == bluetooth._IRQ_PERIPHERAL_CONNECT:
+        elif event == _IRQ_PERIPHERAL_CONNECT:
             conn_handle, addr_type, addr = data
             self.conn_handle = conn_handle
             self.connected = True
             print(f"Connected to {IAM_SENDING_TO}")
-        elif event == bluetooth._IRQ_PERIPHERAL_DISCONNECT:
+        elif event == _IRQ_PERIPHERAL_DISCONNECT:
             print("Disconnected")
             self.connected = False
             self.conn_handle = None
             self.rx_handle = None
             self.ble.gap_scan(2000, 30000, 30000)
-        elif event == bluetooth._IRQ_GATTC_SERVICE_RESULT:
+        elif event == _IRQ_GATTC_SERVICE_RESULT:
             conn_handle, start_handle, end_handle, uuid = data
             if uuid == BLE_SVC_UUID:
                 self.start_handle = start_handle
                 self.end_handle = end_handle
-        elif event == bluetooth._IRQ_GATTC_CHARACTERISTIC_RESULT:
+        elif event == _IRQ_GATTC_CHARACTERISTIC_RESULT:
             conn_handle, def_handle, value_handle, properties, uuid = data
             if uuid == BLE_CHARACTERISTIC_UUID:
                 self.rx_handle = value_handle
-        elif event == bluetooth._IRQ_GATTC_NOTIFY:
+        elif event == _IRQ_GATTC_NOTIFY:
             conn_handle, value_handle, notify_data = data
             self.handle_rx(notify_data)
 
