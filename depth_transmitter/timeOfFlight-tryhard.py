@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-#little change
-=======
-
->>>>>>> a21a98ef3035cc783a015c0fab0243d3fc07d966
 import machine
 import time
 
