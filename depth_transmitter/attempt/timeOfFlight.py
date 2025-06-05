@@ -1,4 +1,4 @@
-import uasyncio as asyncio
+import asyncio
 from machine import Pin, I2C
 from vl53l0x import VL53L0X
 
@@ -7,14 +7,15 @@ I2C_SDA_PIN = 4
 I2C_SCL_PIN = 5
 
 class TOF_Interface:
-    def __init__(self):
+    async def __init__(self):
         self.i2c = I2C(id=I2C_ID, sda=Pin(I2C_SDA_PIN), scl=Pin(I2C_SCL_PIN))
-        self.tof = VL53L0X(self.i2c)
+        self.tof = await VL53L0X(self.i2c)
         self.tof.set_measurement_timing_budget(40000)
         self.ROLLING_WINDOW_SIZE = 10
         self.rolling_buffer = []
         self.isShortRange = True
         self.threshold = 0.3
+        self.MEASUREMENT_BUFFER_MS = 100
 
     def setShortRange(self):
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 12)
@@ -24,8 +25,8 @@ class TOF_Interface:
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 18)
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[1], 14)
 
-    def getRawMeasurement(self):
-        out = (self.tof.ping() / 1000.0)
+    async def getRawMeasurement(self):
+        out = (await self.tof.ping() / 1000.0)
         if self.isShortRange:
             out -= 0.025
         return out
@@ -33,8 +34,8 @@ class TOF_Interface:
     def rolling_average(self):
         return sum(self.rolling_buffer) / len(self.rolling_buffer) if self.rolling_buffer else 0
 
-    def getAverageMeasurement(self):
-        self.rolling_buffer.append(self.getRawMeasurement())
+    async def getAverageMeasurement(self):
+        self.rolling_buffer.append(await self.getRawMeasurement())
         if len(self.rolling_buffer) > self.ROLLING_WINDOW_SIZE:
             self.rolling_buffer.pop(0)
         return self.rolling_average()
@@ -47,25 +48,25 @@ class TOF_Interface:
         self.isShortRange = True
 
         # Prime the rolling buffer
-        for _ in range(10):
-            self.getAverageMeasurement()
-            await asyncio.sleep_ms(100)
+        for _ in range(self.ROLLING_WINDOW_SIZE):
+            await self.getAverageMeasurement()
+            await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
 
         while True:
             try:
-                baseline = self.getAverageMeasurement()
+                baseline = await self.getAverageMeasurement()
                 print(f"baseline: {baseline:.3f} m")
 
                 upwardFlag = False
                 while True:
-                    cur_avg = self.getAverageMeasurement()
+                    cur_avg = await self.getAverageMeasurement()
                     if cur_avg >= baseline + 0.025:
                         break
                     if cur_avg < baseline - 0.01:
                         upwardFlag = True
                         break
                     self.rolling_buffer.clear()
-                    await asyncio.sleep_ms(100)
+                    await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
 
                 if upwardFlag:
                     print('Detected upward movement')
@@ -89,16 +90,17 @@ class TOF_Interface:
             except Exception as e:
                 print("Read error:", e)
 
-            await asyncio.sleep_ms(100)
+            await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
 
 
 async def main():
-    tof = TOF_Interface()
-    await tof.run_tof()
+    tof = await TOF_Interface()
 
+    """ Main function """
+    while True:
+        tasks = [
+            asyncio.create_task(tof.run_tof())
+        ]
+        await asyncio.gather(*tasks)
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Stopped")
+asyncio.run(main())
