@@ -109,10 +109,10 @@ class TimeoutError(RuntimeError):
 
 
 class VL53L0X():
-    async def __init__(self, i2c, address=0x29):
+    def __init__(self, i2c, address=0x29):
         self.i2c = i2c
         self.address = address
-        await asyncio.sleep_ms(100) # give the I2C time to init
+        utime.sleep_ms(100) # give the I2C time to init
         self.init()
         self._started = False
         self.measurement_timing_budget_us = 0
@@ -168,7 +168,7 @@ class VL53L0X():
         for register, value in config:
             self._register(register, value)
 
-    async def init(self, power2v8=True):
+    def init(self, power2v8=True):
         self._flag(_EXTSUP_HV, 0, power2v8)
 
         # I2C standard mode
@@ -196,7 +196,7 @@ class VL53L0X():
 
         self._register(_SYSTEM_SEQUENCE, 0xff)
 
-        spad_count, is_aperture = await self._spad_info()
+        spad_count, is_aperture = self._spad_info()
         spad_map = bytearray(self._registers(_SPAD_ENABLES, struct='6B'))
 
         # set reference spads
@@ -323,13 +323,13 @@ class VL53L0X():
         # self._timing_budget(budget)
 
         self._register(_SYSTEM_SEQUENCE, 0x01)
-        await self._calibrate(0x40)
+        self._calibrate(0x40)
         self._register(_SYSTEM_SEQUENCE, 0x02)
-        await self._calibrate(0x00)
+        self._calibrate(0x00)
 
         self._register(_SYSTEM_SEQUENCE, 0xe8)
 
-    async def _spad_info(self):
+    def _spad_info(self):
         self._config(
             (0x80, 0x01),
             (0xff, 0x01),
@@ -350,7 +350,7 @@ class VL53L0X():
         for timeout in range(_IO_TIMEOUT):
             if self._register(0x83):
                 break
-            await asyncio.sleep_ms(1)
+            utime.sleep_ms(1)
         else:
             raise TimeoutError()
         self._config(
@@ -373,12 +373,12 @@ class VL53L0X():
         is_aperture = bool(value & 0b10000000)
         return count, is_aperture
 
-    async def _calibrate(self, vhv_init_byte):
+    def _calibrate(self, vhv_init_byte):
         self._register(_SYSRANGE_START, 0x01 | vhv_init_byte)
         for timeout in range(_IO_TIMEOUT):
             if self._register(_RESULT_INTERRUPT_STATUS) & 0x07:
                 break
-            await asyncio.sleep_ms(1)
+            utime.sleep_ms(1)
         else:
             raise TimeoutError()
         self._register(_INTERRUPT_CLEAR, 0x01)

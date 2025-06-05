@@ -92,10 +92,9 @@ class TOF_Interface:
 
             await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
 
+tof = TOF_Interface()
 
 async def main():
-    tof = await TOF_Interface()
-
     """ Main function """
     while True:
         tasks = [
