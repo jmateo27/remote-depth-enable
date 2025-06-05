@@ -7,9 +7,9 @@ I2C_SDA_PIN = 4
 I2C_SCL_PIN = 5
 
 class TOF_Interface:
-    async def __init__(self):
+    def __init__(self):
         self.i2c = I2C(id=I2C_ID, sda=Pin(I2C_SDA_PIN), scl=Pin(I2C_SCL_PIN))
-        self.tof = await VL53L0X(self.i2c)
+        self.tof = VL53L0X(self.i2c)
         self.tof.set_measurement_timing_budget(40000)
         self.ROLLING_WINDOW_SIZE = 10
         self.rolling_buffer = []
