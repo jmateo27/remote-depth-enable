@@ -1,8 +1,7 @@
 from micropython import const
 import ustruct
 import utime
-# from machine import Timer
-# import time
+import asyncio
 
 _IO_TIMEOUT = 1000
 _SYSRANGE_START = const(0x00)
@@ -134,9 +133,9 @@ class VL53L0X():
                          }
         self.vcsel_period_type = ["VcselPeriodPreRange", "VcselPeriodFinalRange"]
 
-    def ping(self):
+    async def ping(self):
         self.start()
-        distance = self.read()
+        distance = await self.read()
         self.stop()
         return distance
 
@@ -416,7 +415,7 @@ class VL53L0X():
         )
         self._started = False
 
-    def read(self):
+    async def read(self):
         if not self._started:
             self._config(
                 (0x80, 0x01),
@@ -431,13 +430,13 @@ class VL53L0X():
             for timeout in range(_IO_TIMEOUT):
                 if not self._register(_SYSRANGE_START) & 0x01:
                     break
-                utime.sleep_ms(1)
+                await asyncio.sleep_ms(1)
             else:
                 raise TimeoutError()
         for timeout in range(_IO_TIMEOUT):
             if self._register(_RESULT_INTERRUPT_STATUS) & 0x07:
                 break
-            utime.sleep_ms(1)
+            await asyncio.sleep_ms(1)
         else:
             raise TimeoutError()
         value = self._register(_RESULT_RANGE_STATUS + 10, struct='>H')
