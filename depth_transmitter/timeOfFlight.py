@@ -16,6 +16,8 @@ class TOF_Interface:
         self.isShortRange = True
         self.threshold = 0.3
         self.MEASUREMENT_BUFFER_MS = 100
+        self.shared = shared
+        self.mutex = mutex
 
     def setShortRange(self):
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 12)
