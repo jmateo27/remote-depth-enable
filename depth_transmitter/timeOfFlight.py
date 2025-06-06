@@ -7,7 +7,7 @@ I2C_SDA_PIN = 4
 I2C_SCL_PIN = 5
 
 class TOF_Interface:
-    def __init__(self):
+    def __init__(self, shared, mutex):
         self.i2c = I2C(id=I2C_ID, sda=Pin(I2C_SDA_PIN), scl=Pin(I2C_SCL_PIN))
         self.tof = VL53L0X(self.i2c)
         self.tof.set_measurement_timing_budget(40000)
@@ -40,8 +40,13 @@ class TOF_Interface:
             self.rolling_buffer.pop(0)
         return self.rolling_average()
 
-    def sendPulse(self):
+    async def sendPulse(self):
+        async with self.mutex:
+            self.shared["depthPulse"] = True
         print('Pulse!')
+        await asyncio.sleep(0.75)
+        async with self.mutex:
+            self.shared["depthPulse"] = False
 
     async def run_tof(self):
         self.setShortRange()
@@ -72,7 +77,7 @@ class TOF_Interface:
                     print('Detected upward movement')
                     continue
 
-                self.sendPulse()
+                await self.sendPulse()
 
                 if self.isShortRange:
                     if baseline > self.threshold:
@@ -92,14 +97,14 @@ class TOF_Interface:
 
             await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
 
-tof = TOF_Interface()
 
 async def main():
     """ Main function """
+    tof = TOF_Interface()
     while True:
         tasks = [
             asyncio.create_task(tof.run_tof())
         ]
         await asyncio.gather(*tasks)
 
-asyncio.run(main())
+# asyncio.run(main())
