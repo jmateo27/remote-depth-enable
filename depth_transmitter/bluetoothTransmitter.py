@@ -13,7 +13,7 @@ BLE_SCAN_LENGTH = 5000
 BLE_INTERVAL = 30000
 BLE_WINDOW = 30000
 
-DEPTH_PULSE_LENGTH_S = 0.75
+DEPTH_PULSE_LENGTH_S = 0.2
 
 class Bluetooth_Transmitter:
     def __init__(self, shared, mutex):

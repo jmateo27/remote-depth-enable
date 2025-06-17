@@ -46,7 +46,7 @@ class TOF_Interface:
         async with self.mutex:
             self.shared["depthPulse"] = True
         print('Pulse!')
-        await asyncio.sleep(0.75)
+        await asyncio.sleep(0.2)
         async with self.mutex:
             self.shared["depthPulse"] = False
 

@@ -6,12 +6,12 @@ from sys import exit
 
 IAM = "Receiver"
 
-if IAM not in ['Receiver','Transmitter']:
+if IAM not in ['Receiver','TRANSMITTER']:
     print("IAM must be either Receiver or Transmitter")
     exit()
 
 if IAM == "Receiver":
-    IAM_SENDING_TO = "Transmitter"
+    IAM_SENDING_TO = "TRANSMITTER"
 else:
     IAM_SENDING_TO = "Receiver"
 
@@ -44,18 +44,10 @@ async def receive_data_task(characteristic):
             
             process = Lab1()
             
-            if rMessage == "EnableON DepthON":
+            if rMessage == "DepthON":
                 process.setDepthHigh()
-                process.setEnableHigh()
-            elif rMessage == "EnableOFF DepthON":
-                process.setDepthHigh()
-                process.setEnableLow()
-            elif rMessage == "EnableON DepthOFF":
+            elif rMessage == "DepthOFF":
                 process.setDepthLow()
-                process.setEnableHigh()
-            elif rMessage == "EnableOFF DepthOFF":
-                process.setDepthLow()
-                process.setEnableLow()
             else:
                 print("Reveiced Message did not match any of the four on/off possibilities. Error in communciation")
                 continue
