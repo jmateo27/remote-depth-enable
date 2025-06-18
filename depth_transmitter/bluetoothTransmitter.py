@@ -43,7 +43,7 @@ class Bluetooth_Transmitter:
                 else:
                     sMessage = "DepthOFF"
 
-            print(f'Sending message: {sMessage}')
+#             print(f'Sending message: {sMessage}')
 
             try:
                 msg = self.encode_message(sMessage)

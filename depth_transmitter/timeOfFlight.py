@@ -15,7 +15,7 @@ class TOF_Interface:
         self.rolling_buffer = []
         self.isShortRange = True
         self.threshold = 0.3
-        self.MEASUREMENT_BUFFER_MS = 100
+        self.MEASUREMENT_BUFFER_MS = 50
         self.shared = shared
         self.mutex = mutex
 
@@ -72,7 +72,6 @@ class TOF_Interface:
 
         while True:
             try:
-                cur_avg
                 while True:
                     cur_avg = await self.getAverageMeasurement()
                     # if (cur_avg - prv_avg) > 0:
@@ -80,15 +79,18 @@ class TOF_Interface:
                     # elif (cur_avg - prv_avg) < 0:
                     #     direction = "down"
                     # prv_avg = cur_avg
-                    if (abs((cur_avg - baseline) % STEP_SIZE) < STEP_TOLERANCE) or (abs((cur_avg - baseline) % STEP_SIZE) > STEP_SIZE - STEP_TOLERANCE):
-                        if (abs(cur_avg - prev_pulse_avg) > STATIONARY_TOLERANCE):
-                            continue
+                    if (((abs((cur_avg - baseline) % STEP_SIZE) < STEP_TOLERANCE) or (abs((cur_avg - baseline) % STEP_SIZE) > STEP_SIZE - STEP_TOLERANCE)) and (abs(cur_avg - prev_pulse_avg) > STATIONARY_TOLERANCE)):
+                        #print("I'm here")
+                        #if (abs(cur_avg - prev_pulse_avg) > STATIONARY_TOLERANCE):
+                         #   print("its a me Mario!")
+                          #  continue
                         prev_pulse_avg = cur_avg
                         break
                     self.rolling_buffer.clear()
                     await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
                 
                 await self.sendPulse()
+                print(f'Pulse at {round((cur_avg - baseline)/0.025)}')
 
                 if self.isShortRange:
                     if baseline > self.threshold:
