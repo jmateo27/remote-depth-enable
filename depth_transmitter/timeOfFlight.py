@@ -54,31 +54,40 @@ class TOF_Interface:
         self.setShortRange()
         self.isShortRange = True
 
+        #Change these if you are making a 1cm pulse device
+        STEP_SIZE = 0.025
+        STEP_TOLERANCE = 0.001
+        STATIONARY_TOLERANCE = STEP_SIZE * 0.6
+
         # Prime the rolling buffer
         for _ in range(self.ROLLING_WINDOW_SIZE):
             await self.getAverageMeasurement()
             await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
 
+        baseline = await self.getAverageMeasurement()
+        # prv_avg = baseline
+        print(f"baseline: {baseline:.3f} m")
+        # direction = "up"
+        prev_pulse_avg = -1.0
+
         while True:
             try:
-                baseline = await self.getAverageMeasurement()
-                print(f"baseline: {baseline:.3f} m")
-
-                upwardFlag = False
+                cur_avg
                 while True:
                     cur_avg = await self.getAverageMeasurement()
-                    if cur_avg >= baseline + 0.025:
-                        break
-                    if cur_avg < baseline - 0.01:
-                        upwardFlag = True
+                    # if (cur_avg - prv_avg) > 0:
+                    #     direction = "up"
+                    # elif (cur_avg - prv_avg) < 0:
+                    #     direction = "down"
+                    # prv_avg = cur_avg
+                    if (abs((cur_avg - baseline) % STEP_SIZE) < STEP_TOLERANCE) or (abs((cur_avg - baseline) % STEP_SIZE) > STEP_SIZE - STEP_TOLERANCE):
+                        if (abs(cur_avg - prev_pulse_avg) > STATIONARY_TOLERANCE):
+                            continue
+                        prev_pulse_avg = cur_avg
                         break
                     self.rolling_buffer.clear()
                     await asyncio.sleep_ms(self.MEASUREMENT_BUFFER_MS)
-
-                if upwardFlag:
-                    print('Detected upward movement')
-                    continue
-
+                
                 await self.sendPulse()
 
                 if self.isShortRange:
