@@ -1,6 +1,6 @@
 import aioble
 import bluetooth
-import asyncio
+import uasyncio as asyncio
 from sys import exit
 
 # Bluetooth parameters
@@ -13,12 +13,17 @@ BLE_SCAN_LENGTH = 5000
 BLE_INTERVAL = 30000
 BLE_WINDOW = 30000
 
-DEPTH_PULSE_LENGTH_S = 0.2
+DEPTH_PERIOD_MS = 50
+DEPTH_PULSE_LENGTH_MS = 25
+DEPTH_OFF_MS = DEPTH_PERIOD_MS - DEPTH_PULSE_LENGTH_MS
+
+ON = 1
+OFF = 0
+MESSAGES = ["DepthOFF", "DepthON"]
 
 class Bluetooth_Transmitter:
-    def __init__(self, shared, mutex):
-        self.shared = shared
-        self.mutex = mutex
+    def __init__(self, event):
+        self.event = event
 
     def encode_message(self, message):
         """ Encode a message to bytes """
@@ -27,6 +32,8 @@ class Bluetooth_Transmitter:
     async def send_data_task(self, connection, characteristic):
         """ Send data to the connected device """
         while True:
+
+            # Checks to see if able to send data at all
             if not connection:
                 print("error - no connection in send data")
                 continue
@@ -34,26 +41,21 @@ class Bluetooth_Transmitter:
             if not characteristic:
                 print("error no characteristic provided in send data")
                 continue
-            
-            # Determine the message depending on the shared variable
-            sMessage = ""
-            async with self.mutex:
-                if self.shared["depthPulse"]:
-                    sMessage = "DepthON"
-                else:
-                    sMessage = "DepthOFF"
 
-#             print(f'Sending message: {sMessage}')
+            # Idle until event is set
+            await self.event.wait()
+            self.event.clear() # Un-set the event for future use
 
             try:
-                msg = self.encode_message(sMessage)
-                characteristic.write(msg)
+                # ON for 25 ms (fixed), OFF for 25 ms (at least)
+                characteristic.write(self.encode_message(MESSAGES[ON]))
+                await asyncio.sleep_ms(DEPTH_PULSE_LENGTH_MS)
+                characteristic.write(self.encode_message(MESSAGES[OFF]))
+                await asyncio.sleep_ms(DEPTH_OFF_MS)
                 
             except Exception as e:
                 print(f"writing error {e}")
                 continue
-
-            await asyncio.sleep(DEPTH_PULSE_LENGTH_S)
 
     async def run_transmitter_mode(self):
         """ Run the transmitter mode """

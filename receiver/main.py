@@ -3,22 +3,10 @@ import aioble
 import bluetooth
 import asyncio
 from sys import exit
-
-IAM = "Receiver"
-
-if IAM not in ['Receiver','TRANSMITTER']:
-    print("IAM must be either Receiver or Transmitter")
-    exit()
-
-if IAM == "Receiver":
-    IAM_SENDING_TO = "TRANSMITTER"
-else:
-    IAM_SENDING_TO = "Receiver"
-
-MESSAGE = f"Hello from {IAM}!"
+from time import ticks_ms, ticks_diff
 
 # Bluetooth parameters
-BLE_NAME = f"{IAM}"  # You can dynamically change this if you want unique names
+BLE_NAME = "RECEIVER"
 BLE_SVC_UUID = bluetooth.UUID(0x181A)
 BLE_CHARACTERISTIC_UUID = bluetooth.UUID(0x2A6E)
 BLE_APPEARANCE = 0x0300
@@ -27,36 +15,60 @@ BLE_SCAN_LENGTH = 5000
 BLE_INTERVAL = 30000
 BLE_WINDOW = 30000
 
-# state variables
-message_count = 0
+DEPTH_INTERVAL_ON_MS = 200
+POLLING_LATENCY_MS = 20
+
+ON = 1
+OFF = 0
+MESSAGES = ["DepthOFF", "DepthON"]
 
 def decode_message(message):
     """ Decode a message from bytes """
     return message.decode('utf-8')
 
+def messageIsValid(message):
+    return True if message in MESSAGES else False
+
 async def receive_data_task(characteristic):
     """ Receive data from the connected device """
-    global message_count
+    # Initialize some variables needed for later
+    process = Lab1()
+    curr_msg = "DepthOFF"
+    timer_start = ticks_ms()
     while True:
         try:
+            # Start to time for elapsed time
+            t0 = ticks_ms()
+
+            # Set prev_msg for later checking of state
+            prev_msg = curr_msg
+
+            # Get what is in the characteristic and verify if valid message
             data = await characteristic.read()
-            rMessage = decode_message(data) #rMeassage means Received Message
-            
-            process = Lab1()
-            
-            if rMessage == "DepthON":
-                process.setDepthHigh()
-            elif rMessage == "DepthOFF":
-                process.setDepthLow()
-            else:
-                print("Reveiced Message did not match any of the four on/off possibilities. Error in communciation")
+            curr_msg = decode_message(data)
+            if not messageIsValid(curr_msg):
                 continue
 
-            if data:
-                print(f"{IAM} received: {rMessage}, count: {message_count} \n{process.enable.value} {process.depth.value}")
-                await asyncio.sleep(0.01)
-            message_count += 1
+            # Check whether depth is high or low currently
+            depthHigh = process.depth.value() == 1
 
+            
+            if depthHigh and ( # Follow only if depth is currently high
+                (ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS)   # Set depth low if it's been 200 ms
+                or (prev_msg == MESSAGES[OFF] and curr_msg == MESSAGES[ON])     # Set depth low if the previous message said OFF, but is now ON  
+            ):
+                process.setDepthLow()
+            elif not depthHigh and (curr_msg == MESSAGES[ON]):                     # Set depth high if depth is low and messages says ON
+                process.setDepthHigh()
+                # Start the timer for limiting depth pulse to 200 ms
+                timer_start = ticks_ms()
+
+            # Calculate the elapsed time
+            elapsed = ticks_diff(ticks_ms(), t0)
+
+            # Ensure that the sampling is limited to running every POLLING_LATENCY_MS (20 ms) or at 50Hz
+            await asyncio.sleep_ms(max(0, POLLING_LATENCY_MS - elapsed))
+            
         except asyncio.TimeoutError:
             print("Timeout waiting for data in {ble_name}.")
             break
@@ -83,7 +95,7 @@ async def run_receiver_mode():
             print("Timeout during connection")
             continue
 
-        print(f"{IAM} connected to {connection}")
+        print(f"RECEIVER connected to {connection}")
 
         # Discover services
         async with connection:
@@ -118,7 +130,7 @@ async def ble_scan():
                 name = result.name()
             except UnicodeError:
                 name = None
-            if name == IAM_SENDING_TO and BLE_SVC_UUID in result.services():
+            if name == "TRANSMITTER" and BLE_SVC_UUID in result.services():
                 print(f"found {name} with service uuid {BLE_SVC_UUID}")
                 return result
     return None
