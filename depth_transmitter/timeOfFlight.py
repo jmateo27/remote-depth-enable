@@ -11,9 +11,11 @@ I2C_SCL_PIN = 5
 STEP_SIZE_CM = 2.5
 # STEP_SIZE_CM = 1.0
 M_PER_CM = 0.01
+CM_PER_M = 100
 
 STEP_TOLERANCE_CM = STEP_SIZE_CM * 0.1
-STATIONARY_TOLERANCE_CM = STEP_SIZE_CM * 0.5
+STATIONARY_TOLERANCE_CM = STEP_SIZE_CM * 0.7
+MAX_MEASUREMENT_M = 2.5
 
 class TOF_Interface:
     def __init__(self, event):
@@ -35,6 +37,12 @@ class TOF_Interface:
     def setLongRange(self):
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 18)
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[1], 14)
+        
+    def getMedian(self):
+        if not self.rolling_buffer:
+            raise ValueError("no median for empty data")
+        data = sorted(self.rolling_buffer)
+        return data[5]
 
     async def getRawMeasurement(self):
         out = (await self.tof.ping() / 1000.0)
@@ -44,13 +52,21 @@ class TOF_Interface:
 
     async def getGoodMeasurement(self):
         self.rolling_buffer.clear()
-        for i in range(self.ROLLING_WINDOW_SIZE):
-            t0 = ticks_ms()
-            self.rolling_buffer.append(await self.getRawMeasurement())
-            elapsed = ticks_diff(ticks_ms, t0)
-            await asyncio.sleep_ms(max(0, self.MEASUREMENT_BUFFER_MS / self.ROLLING_WINDOW_SIZE - elapsed))
         
-        return sum(self.rolling_buffer) / self.ROLLING_WINDOW_SIZE
+        t0 = ticks_ms()
+        for i in range(self.ROLLING_WINDOW_SIZE):
+            t1 = ticks_ms()
+            m = await self.getRawMeasurement()
+            self.rolling_buffer.append(m)
+            print(ticks_ms() - t1)
+#             print(f'{m*CM_PER_M} cm')
+            
+        average = self.getMedian()
+            
+        elapsed = ticks_diff(ticks_ms(), t0)
+#         print(elapsed)
+        await asyncio.sleep_ms(max(0, self.MEASUREMENT_BUFFER_MS - elapsed))
+        return average
 
     async def sendPulse(self):
         self.event.set()
@@ -58,29 +74,36 @@ class TOF_Interface:
     async def run_tof(self):
         self.setShortRange()
         self.isShortRange = True
-
-        baseline = await self.getGoodMeasurement()
-        print(f"Baseline: {baseline:.3f} m")
+        
+        await asyncio.sleep(1)
+        await self.getRawMeasurement()
+        baseline = await self.getRawMeasurement()
+        print(f"Baseline: {(baseline*CM_PER_M):.3f} cm")
         prev_pulse_avg = -1.0
 
         while True:
             t0 = ticks_ms()
 
-            cur_avg = await self.getGoodMeasurement()
-            if (((((cur_avg - baseline) % STEP_SIZE_CM) < STEP_TOLERANCE_CM) or (((cur_avg - baseline) % STEP_SIZE_CM) > STEP_SIZE_CM - STEP_TOLERANCE_CM))
-                and (abs(cur_avg - prev_pulse_avg) > STATIONARY_TOLERANCE_CM)
-            ):
+            cur_avg = await self.getRawMeasurement()
+
+            if ((	((abs((cur_avg - baseline) * CM_PER_M) % STEP_SIZE_CM) < (STEP_TOLERANCE_CM))
+                or  ((abs((cur_avg - baseline) * CM_PER_M) % STEP_SIZE_CM) > (STEP_SIZE_CM - STEP_TOLERANCE_CM)))
+                and (abs((cur_avg - prev_pulse_avg)) > (STATIONARY_TOLERANCE_CM * M_PER_CM))
+                and (cur_avg < MAX_MEASUREMENT_M)
+            ):      
                 await self.sendPulse()
-                print(f'Pulse at {round((cur_avg - baseline)*M_PER_CM)}')
+                print((cur_avg - prev_pulse_avg))
+                prev_pulse_avg = cur_avg
+#                 print(f'Pulse at {round(((cur_avg - baseline) * CM_PER_M) / STEP_SIZE_CM)}')
 
             if self.isShortRange:
-                if baseline > self.RANGE_THRESHOLD:
+                if cur_avg > self.RANGE_THRESHOLD:
                     print("Switching to long range")
                     self.setLongRange()
                     self.isShortRange = False
                     self.rolling_buffer.clear()
             else:
-                if baseline <= self.RANGE_THRESHOLD:
+                if cur_avg <= self.RANGE_THRESHOLD:
                     print("Switching to short range")
                     self.setShortRange()
                     self.isShortRange = True

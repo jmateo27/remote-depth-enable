@@ -35,6 +35,8 @@ async def receive_data_task(characteristic):
     process = Lab1()
     curr_msg = "DepthOFF"
     timer_start = ticks_ms()
+    
+    count = 0
     while True:
         try:
             # Start to time for elapsed time
@@ -48,7 +50,7 @@ async def receive_data_task(characteristic):
             curr_msg = decode_message(data)
             if not messageIsValid(curr_msg):
                 continue
-
+            print(ticks_ms() - t0)
             # Check whether depth is high or low currently
             depthHigh = process.depth.value() == 1
 
@@ -57,15 +59,19 @@ async def receive_data_task(characteristic):
                 (ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS)   # Set depth low if it's been 200 ms
                 or (prev_msg == MESSAGES[OFF] and curr_msg == MESSAGES[ON])     # Set depth low if the previous message said OFF, but is now ON  
             ):
+                print("Depth low.")
                 process.setDepthLow()
-            elif not depthHigh and (curr_msg == MESSAGES[ON]):                     # Set depth high if depth is low and messages says ON
+            elif not depthHigh and (curr_msg == MESSAGES[ON]):
+                print(f"Depth high {count}!")
+                count = count + 1
+                # Set depth high if depth is low and messages says ON
                 process.setDepthHigh()
                 # Start the timer for limiting depth pulse to 200 ms
                 timer_start = ticks_ms()
 
             # Calculate the elapsed time
             elapsed = ticks_diff(ticks_ms(), t0)
-
+        
             # Ensure that the sampling is limited to running every POLLING_LATENCY_MS (20 ms) or at 50Hz
             await asyncio.sleep_ms(max(0, POLLING_LATENCY_MS - elapsed))
             
