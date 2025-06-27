@@ -12,8 +12,8 @@ BLE_CHARACTERISTIC_UUID = bluetooth.UUID(0x2A6E)
 BLE_APPEARANCE = 0x0300
 BLE_ADVERTISING_INTERVAL = 2000
 BLE_SCAN_LENGTH = 5000
-BLE_INTERVAL = 30000
-BLE_WINDOW = 30000
+BLE_INTERVAL = 10000
+BLE_WINDOW = 10000
 
 DEPTH_INTERVAL_ON_MS = 200
 POLLING_LATENCY_MS = 20
@@ -46,34 +46,28 @@ async def receive_data_task(characteristic):
             prev_msg = curr_msg
 
             # Get what is in the characteristic and verify if valid message
-            data = await characteristic.read()
-            curr_msg = decode_message(data)
-            if not messageIsValid(curr_msg):
-                continue
-            print(ticks_ms() - t0)
-            # Check whether depth is high or low currently
-            depthHigh = process.depth.value() == 1
+            async for data in characteristic.notifications():
+                curr_msg = decode_message(data)
+                if not messageIsValid(curr_msg):
+                    continue
+                print(ticks_ms() - t0)
+                # Check whether depth is high or low currently
+                depthHigh = process.depth.value() == 1
 
-            
-            if depthHigh and ( # Follow only if depth is currently high
-                (ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS)   # Set depth low if it's been 200 ms
-                or (prev_msg == MESSAGES[OFF] and curr_msg == MESSAGES[ON])     # Set depth low if the previous message said OFF, but is now ON  
-            ):
-                print("Depth low.")
-                process.setDepthLow()
-            elif not depthHigh and (curr_msg == MESSAGES[ON]):
-                print(f"Depth high {count}!")
-                count = count + 1
-                # Set depth high if depth is low and messages says ON
-                process.setDepthHigh()
-                # Start the timer for limiting depth pulse to 200 ms
-                timer_start = ticks_ms()
-
-            # Calculate the elapsed time
-            elapsed = ticks_diff(ticks_ms(), t0)
-        
-            # Ensure that the sampling is limited to running every POLLING_LATENCY_MS (20 ms) or at 50Hz
-            await asyncio.sleep_ms(max(0, POLLING_LATENCY_MS - elapsed))
+                
+                if depthHigh and ( # Follow only if depth is currently high
+                    (ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS)   # Set depth low if it's been 200 ms
+                    or (prev_msg == MESSAGES[OFF] and curr_msg == MESSAGES[ON])     # Set depth low if the previous message said OFF, but is now ON  
+                ):
+                    print("Depth low.")
+                    process.setDepthLow()
+                elif not depthHigh and (curr_msg == MESSAGES[ON]):
+                    print(f"Depth high {count}!")
+                    count = count + 1
+                    # Set depth high if depth is low and messages says ON
+                    process.setDepthHigh()
+                    # Start the timer for limiting depth pulse to 200 ms
+                    timer_start = ticks_ms()
             
         except asyncio.TimeoutError:
             print("Timeout waiting for data in {ble_name}.")
@@ -130,7 +124,7 @@ async def ble_scan():
 
     print(f"Scanning for BLE Beacon named {BLE_NAME}...")
 
-    async with aioble.scan(5000, interval_us=30000, window_us=30000, active=True) as scanner:
+    async with aioble.scan(5000, interval_us=10000, window_us=10000, active=True) as scanner:
         async for result in scanner:
             try:
                 name = result.name()

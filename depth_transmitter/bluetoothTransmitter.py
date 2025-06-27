@@ -10,8 +10,8 @@ BLE_CHARACTERISTIC_UUID = bluetooth.UUID(0x2A6E)
 BLE_APPEARANCE = 0x0300
 BLE_ADVERTISING_INTERVAL = 2000
 BLE_SCAN_LENGTH = 5000
-BLE_INTERVAL = 30000
-BLE_WINDOW = 30000
+BLE_INTERVAL = 10000
+BLE_WINDOW = 10000
 
 DEPTH_PERIOD_MS = 50
 DEPTH_PULSE_LENGTH_MS = 25
@@ -48,9 +48,9 @@ class Bluetooth_Transmitter:
 
             try:
                 # ON for 25 ms (fixed), OFF for 25 ms (at least)
-                characteristic.write(self.encode_message(MESSAGES[ON]))
+                await characteristic.write(self.encode_message(MESSAGES[ON]), response=False)
                 await asyncio.sleep_ms(DEPTH_PULSE_LENGTH_MS)
-                characteristic.write(self.encode_message(MESSAGES[OFF]))
+                await characteristic.write(self.encode_message(MESSAGES[OFF]), response=False)
                 await asyncio.sleep_ms(DEPTH_OFF_MS)
                 
             except Exception as e:
@@ -65,10 +65,10 @@ class Bluetooth_Transmitter:
         characteristic = aioble.Characteristic(
             ble_service,
             BLE_CHARACTERISTIC_UUID,
-            read=True,
+            read=False,
             notify=True,
-            write=True,
-            capture=True,
+            write=False,
+            capture=False,
         )
         aioble.register_services(ble_service)
 
