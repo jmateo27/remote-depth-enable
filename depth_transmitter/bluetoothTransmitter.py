@@ -33,15 +33,6 @@ class Bluetooth_Transmitter:
         """ Send data to the connected device """
         while True:
 
-            # Checks to see if able to send data at all
-            if not connection:
-                print("error - no connection in send data")
-                continue
-
-            if not characteristic:
-                print("error no characteristic provided in send data")
-                continue
-
             # Idle until event is set
             await self.event.wait()
             self.event.clear() # Un-set the event for future use
