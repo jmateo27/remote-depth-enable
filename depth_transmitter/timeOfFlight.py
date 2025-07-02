@@ -9,13 +9,6 @@ I2C1_ID = 1
 I2C_SDA_PINS = [4, 18]
 I2C_SCL_PINS = [5, 19]
 
-STEP_SIZE_CM = 2.5
-# STEP_SIZE_CM = 1.0
-M_PER_CM = 0.01
-CM_PER_M = 100
-
-STEP_TOLERANCE_CM = STEP_SIZE_CM * 0.1
-STATIONARY_TOLERANCE_CM = STEP_SIZE_CM * 0.7
 MAX_MEASUREMENT_M = 2.5
 
 class TOF_Interface:
@@ -40,39 +33,11 @@ class TOF_Interface:
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 18)
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[1], 14)
         
-    def getMedian(self):
-        if not self.rolling_buffer:
-            raise ValueError("no median for empty data")
-        data = sorted(self.rolling_buffer)
-        return data[5]
-
     async def getRawMeasurement(self):
         out = (await self.tof.ping() / 1000.0)
         if self.isShortRange:
             out -= 0.025
         return out
-
-    async def getGoodMeasurement(self):
-        self.rolling_buffer.clear()
-        
-        t0 = ticks_ms()
-        for i in range(self.ROLLING_WINDOW_SIZE):
-            t1 = ticks_ms()
-            m = await self.getRawMeasurement()
-            self.rolling_buffer.append(m)
-            print(ticks_ms() - t1)
-#             print(f'{m*CM_PER_M} cm')
-            
-        average = self.getMedian()
-            
-        elapsed = ticks_diff(ticks_ms(), t0)
-#         print(elapsed)
-        await asyncio.sleep_ms(max(0, self.MEASUREMENT_BUFFER_MS - elapsed))
-        return average
-
-    async def sendPulse(self):
-        self.shared["pulse_source"] = self.id
-        self.shared["event"].set()
 
     async def run_tof(self):
         if self.id == I2C1_ID:
@@ -84,52 +49,27 @@ class TOF_Interface:
         await asyncio.sleep(1)
         await self.getRawMeasurement()
         baseline = await self.getRawMeasurement()
-        print(f"Baseline: {(baseline*CM_PER_M):.3f} cm")
-        prev_pulse_avg = -1.0
+        print(f"Baseline: {(baseline*100):.3f} cm")
 
         while True:
-            t0 = ticks_ms()
+            measurement = await self.getRawMeasurement()
 
-            cur_avg = await self.getRawMeasurement()
+            if measurement > MAX_MEASUREMENT_M:
+                continue
 
-            if ((	((abs((cur_avg - baseline) * CM_PER_M) % STEP_SIZE_CM) < (STEP_TOLERANCE_CM))
-                or  ((abs((cur_avg - baseline) * CM_PER_M) % STEP_SIZE_CM) > (STEP_SIZE_CM - STEP_TOLERANCE_CM)))
-                and (abs((cur_avg - prev_pulse_avg)) > (STATIONARY_TOLERANCE_CM * M_PER_CM))
-                and (cur_avg < MAX_MEASUREMENT_M)
-            ):      
-                await self.sendPulse()
-#                 print((cur_avg - prev_pulse_avg))
-                prev_pulse_avg = cur_avg
-#                 print(f'Pulse at {round(((cur_avg - baseline) * CM_PER_M) / STEP_SIZE_CM)}')
+            self.shared["reading"] = measurement - baseline
+            print(f"{self.id} reads {(measurement - baseline)*100} cm")
+            self.shared["new_reading"].set()
 
             if self.isShortRange:
-                if cur_avg > self.RANGE_THRESHOLD:
+                if measurement > self.RANGE_THRESHOLD:
                     print("Switching to long range")
                     self.setLongRange()
                     self.isShortRange = False
                     self.rolling_buffer.clear()
             else:
-                if cur_avg <= self.RANGE_THRESHOLD:
+                if measurement <= self.RANGE_THRESHOLD:
                     print("Switching to short range")
                     self.setShortRange()
                     self.isShortRange = True
                     self.rolling_buffer.clear()
-
-            elapsed = ticks_ms() - t0
-
-            await asyncio.sleep_ms(max(0, self.SAMPLING_BUFFER_MS - elapsed))
-                
-            
-
-            
-
-async def main():
-    """ Main function """
-    tof = TOF_Interface()
-    while True:
-        tasks = [
-            asyncio.create_task(tof.run_tof())
-        ]
-        await asyncio.gather(*tasks)
-
-# asyncio.run(main())

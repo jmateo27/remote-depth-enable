@@ -32,29 +32,20 @@ class Bluetooth_Transmitter:
 
     async def send_data_task(self, connection, characteristic):
         """ Send data to the connected device """
-        current_source = 0
-        incorrect_source = True
         count = 0
         while True:            
             # Idle until event is set
-            while incorrect_source:
-                await self.shared["event"].wait()
-                self.shared["event"].clear() # Un-set the event for future use
-                if self.shared["pulse_source"] == current_source:
-                    incorrect_source = False
-                    current_source = 1 if current_source == 0 else 0
+            await self.shared["pulse_event"].wait()
             
-            incorrect_source = True
-                
             try:
                 t0 = time.ticks_ms()
                 await characteristic.notify(connection, self.encode_message(MESSAGES[ON]))
                 print(f"Took {time.ticks_ms() - t0} ms to notify ON (1)")
             except Exception as e:
-                print(f"Took {time.ticks_ms() - t0} ms to notify ON #{count} from {1 - current_source}")
+                print(f"Took {time.ticks_ms() - t0} ms to notify ON #{count}")
             
             count += 1
-            self.shared["event"].clear() # Un-set the event for future use
+            self.shared["pulse_event"].clear()
 
     async def run_transmitter_mode(self):
         """ Run the transmitter mode """
@@ -87,23 +78,3 @@ class Bluetooth_Transmitter:
                 await asyncio.gather(*tasks)
                 print(f"{BLE_NAME} disconnected")
                 break
-
-async def depthPulseTester(shared, mutex):
-    while True:
-        await asyncio.sleep(DEPTH_PULSE_LENGTH_S)
-        async with mutex:
-            shared["depthPulse"] = not shared["depthPulse"]
-        
-async def main():
-    """ Main function """
-    shared = {"depthPulse": False}
-    mutex = asyncio.Lock()
-    bt_transmitter = Bluetooth_Transmitter(shared, mutex)
-    while True:
-        tasks = [
-            asyncio.create_task(bt_transmitter.run_transmitter_mode()),
-            asyncio.create_task(depthPulseTester(shared, mutex))
-        ]
-        await asyncio.gather(*tasks)
-
-# asyncio.run(main())
