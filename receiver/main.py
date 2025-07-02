@@ -17,7 +17,7 @@ BLE_WINDOW = 10000
 
 DEPTH_INTERVAL_ON_MS = 200
 POLLING_LATENCY_MS = 20
-FAST_PULSE_OFF_MS = 20
+FAST_PULSE_OFF_MS = 5
 
 ON = 0
 # OFF = 0
@@ -43,13 +43,16 @@ async def receive_data_task(characteristic):
         while True:
             try:
                 # Wait for new notification, max 200ms
+                t1 = ticks_ms()
                 data = await asyncio.wait_for(characteristic.notified(), timeout=0.2)
+                elapsed = ticks_ms() - t1
+                print(f"{elapsed} ms since last pulse")
                 curr_msg = decode_message(data)
 
                 if not messageIsValid(curr_msg):
                     continue
 
-                print("Received:", curr_msg)
+#                 print("Received:", curr_msg)
 
             except asyncio.TimeoutError:
                 # No data received within 200ms
@@ -61,7 +64,7 @@ async def receive_data_task(characteristic):
             if depthHigh and (
                 ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS
             ):
-                print("Depth low.")
+#                 print("Depth low.")
                 process.setDepthLow()
             # If depth is low, raise it if message says ON
             elif not depthHigh and curr_msg == MESSAGES[ON]:
