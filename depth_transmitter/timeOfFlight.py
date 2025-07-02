@@ -4,9 +4,10 @@ from vl53l0x import VL53L0X
 from time import ticks_ms, ticks_diff
 import uasyncio as asyncio
 
-I2C_ID = 0
-I2C_SDA_PIN = 4
-I2C_SCL_PIN = 5
+I2C0_ID = 0
+I2C1_ID = 1
+I2C_SDA_PINS = [4, 18]
+I2C_SCL_PINS = [5, 19]
 
 STEP_SIZE_CM = 2.5
 # STEP_SIZE_CM = 1.0
@@ -18,8 +19,8 @@ STATIONARY_TOLERANCE_CM = STEP_SIZE_CM * 0.7
 MAX_MEASUREMENT_M = 2.5
 
 class TOF_Interface:
-    def __init__(self, event):
-        self.i2c = I2C(id=I2C_ID, sda=Pin(I2C_SDA_PIN), scl=Pin(I2C_SCL_PIN))
+    def __init__(self, event, i2c_id):
+        self.i2c = I2C(id=i2c_id, sda=Pin(I2C_SDA_PINS[i2c_id]), scl=Pin(I2C_SCL_PINS[i2c_id]))
         self.tof = VL53L0X(self.i2c)
         self.tof.set_measurement_timing_budget(40000)
         self.ROLLING_WINDOW_SIZE = 10
