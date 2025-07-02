@@ -18,9 +18,9 @@ DEPTH_PERIOD_MS = 50
 DEPTH_PULSE_LENGTH_MS = 25
 DEPTH_OFF_MS = DEPTH_PERIOD_MS - DEPTH_PULSE_LENGTH_MS
 
-ON = 1
-OFF = 0
-MESSAGES = ["DepthOFF", "DepthON"]
+ON = 0
+# OFF = 0
+MESSAGES = ["O"]
 
 class Bluetooth_Transmitter:
     def __init__(self, event):
@@ -47,24 +47,12 @@ class Bluetooth_Transmitter:
             await self.event.wait()
             self.event.clear() # Un-set the event for future use
                 
-            # ON for 25 ms (fixed), OFF for 25 ms (at least)
             try:
                 t0 = time.ticks_ms()
                 await characteristic.notify(connection, self.encode_message(MESSAGES[ON]))
                 print(f"Took {time.ticks_ms() - t0} ms to notify ON (1)")
             except Exception as e:
                 print(f"Took {time.ticks_ms() - t0} ms to notify ON (2)")
-                
-            await asyncio.sleep_ms(DEPTH_PULSE_LENGTH_MS)
-            
-            try:
-                t0 = time.ticks_ms()
-                await characteristic.notify(connection, self.encode_message(MESSAGES[OFF]))
-                print(f"Took {time.ticks_ms() - t0} ms to notify OFF (1)")
-            except Exception as e:
-                print(f"Took {time.ticks_ms() - t0} ms to notify OFF (2)")
-            
-            await asyncio.sleep_ms(DEPTH_OFF_MS)
 
     async def run_transmitter_mode(self):
         """ Run the transmitter mode """

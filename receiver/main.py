@@ -17,6 +17,7 @@ BLE_WINDOW = 10000
 
 DEPTH_INTERVAL_ON_MS = 200
 POLLING_LATENCY_MS = 20
+FAST_PULSE_OFF_MS = 20
 
 ON = 0
 # OFF = 0
@@ -32,7 +33,7 @@ def messageIsValid(message):
 async def receive_data_task(characteristic):
     """ Receive data from the connected device """
     process = Lab1()
-    curr_msg = "DepthOFF"
+    curr_msg = ""
     timer_start = ticks_ms()
     count = 0
 
@@ -62,13 +63,21 @@ async def receive_data_task(characteristic):
             ):
                 print("Depth low.")
                 process.setDepthLow()
-
             # If depth is low, raise it if message says ON
             elif not depthHigh and curr_msg == MESSAGES[ON]:
-                print(f"Depth high {count}!")
+                print(f"Depth high(1) {count}!")
                 count += 1
                 process.setDepthHigh()
                 timer_start = ticks_ms()
+            elif depthHigh:
+                # Set depth low for a few ms, then back high
+                process.setDepthLow()
+                await asyncio.sleep_ms(FAST_PULSE_OFF_MS)
+                print(f"Depth high(2) {count}!")
+                count += 1
+                process.setDepthHigh()
+                timer_start = ticks_ms()
+            
 
     except Exception as e:
         print(f"Error receiving data: {e}")
