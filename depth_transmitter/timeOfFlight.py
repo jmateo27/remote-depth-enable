@@ -20,6 +20,7 @@ MAX_MEASUREMENT_M = 2.5
 
 class TOF_Interface:
     def __init__(self, event, i2c_id):
+        self.id = i2c_id
         self.i2c = I2C(id=i2c_id, sda=Pin(I2C_SDA_PINS[i2c_id]), scl=Pin(I2C_SCL_PINS[i2c_id]))
         self.tof = VL53L0X(self.i2c)
         self.tof.set_measurement_timing_budget(40000)
@@ -73,6 +74,9 @@ class TOF_Interface:
         self.event.set()
 
     async def run_tof(self):
+        if self.id == I2C1_ID:
+            await asyncio.sleep_ms(15)
+
         self.setShortRange()
         self.isShortRange = True
         
