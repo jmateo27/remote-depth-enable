@@ -31,48 +31,48 @@ def messageIsValid(message):
 
 async def receive_data_task(characteristic):
     """ Receive data from the connected device """
-    # Initialize some variables needed for later
     process = Lab1()
     curr_msg = "DepthOFF"
     timer_start = ticks_ms()
-    
     count = 0
+
     try:
-        # Start to time for elapsed time
-        t0 = ticks_ms()
+        await characteristic.subscribe()  # Start receiving notifications
 
-        # Set prev_msg for later checking of state
-        prev_msg = curr_msg
+        while True:
+            try:
+                # Wait for new notification, max 200ms
+                data = await asyncio.wait_for(characteristic.notified(), timeout=0.2)
+                curr_msg = decode_message(data)
 
-        # Get what is in the characteristic and verify if valid message
-        async for data in characteristic.notifications():
-            curr_msg = decode_message(data)
-            if not messageIsValid(curr_msg):
-                continue
-            print(ticks_ms() - t0)
-            # Check whether depth is high or low currently
+                if not messageIsValid(curr_msg):
+                    continue
+
+                print("Received:", curr_msg)
+
+            except asyncio.TimeoutError:
+                # No data received within 200ms
+                curr_msg = None
+
             depthHigh = process.depth.value() == 1
 
-            
-            if depthHigh and ( # Follow only if depth is currently high
-                (ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS)   # Set depth low if it's been 200 ms
-                or (prev_msg == MESSAGES[OFF] and curr_msg == MESSAGES[ON])     # Set depth low if the previous message said OFF, but is now ON  
+            # If depth is high, we may want to lower it based on timeout or OFF
+            if depthHigh and (
+                curr_msg == MESSAGES[OFF] or ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS
             ):
                 print("Depth low.")
                 process.setDepthLow()
-            elif not depthHigh and (curr_msg == MESSAGES[ON]):
+
+            # If depth is low, raise it if message says ON
+            elif not depthHigh and curr_msg == MESSAGES[ON]:
                 print(f"Depth high {count}!")
-                count = count + 1
-                # Set depth high if depth is low and messages says ON
+                count += 1
                 process.setDepthHigh()
-                # Start the timer for limiting depth pulse to 200 ms
                 timer_start = ticks_ms()
-        
-    except asyncio.TimeoutError:
-        print("Timeout waiting for data in {ble_name}.")
+
     except Exception as e:
         print(f"Error receiving data: {e}")
-
+        
 async def run_receiver_mode():
     """ Run the receiver mode """
 
@@ -99,8 +99,6 @@ async def run_receiver_mode():
             try:
                 service = await connection.service(BLE_SVC_UUID)
                 characteristic = await service.characteristic(BLE_CHARACTERISTIC_UUID)
-                print("Characteristic:", characteristic)
-                print("Has notifications method:", hasattr(characteristic, "notifications"))
             except (asyncio.TimeoutError, AttributeError):
                 print("Timed out discovering services/characteristics")
                 continue
