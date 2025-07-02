@@ -42,7 +42,8 @@ class Bluetooth_Transmitter:
                 await characteristic.notify(connection, self.encode_message(MESSAGES[ON]))
                 print(f"Took {time.ticks_ms() - t0} ms to notify ON (1)")
             except Exception as e:
-                print(f"Took {time.ticks_ms() - t0} ms to notify ON #{count}")
+#                 print(f"Took {time.ticks_ms() - t0} ms to notify ON #{count}")
+                pass
             
             count += 1
             self.shared["pulse_event"].clear()
