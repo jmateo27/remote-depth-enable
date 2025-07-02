@@ -2,6 +2,7 @@ import aioble
 import bluetooth
 import uasyncio as asyncio
 from sys import exit
+import time
 
 # Bluetooth parameters
 BLE_NAME = "TRANSMITTER"  # You can dynamically change this if you want unique names
@@ -45,17 +46,25 @@ class Bluetooth_Transmitter:
             # Idle until event is set
             await self.event.wait()
             self.event.clear() # Un-set the event for future use
-
-            try:
-                # ON for 25 ms (fixed), OFF for 25 ms (at least)
-                await characteristic.notify(connection, self.encode_message(MESSAGES[ON]))
-                await asyncio.sleep_ms(DEPTH_PULSE_LENGTH_MS)
-                await characteristic.notify(connection, self.encode_message(MESSAGES[OFF]))
-                await asyncio.sleep_ms(DEPTH_OFF_MS)
                 
+            # ON for 25 ms (fixed), OFF for 25 ms (at least)
+            try:
+                t0 = time.ticks_ms()
+                await characteristic.notify(connection, self.encode_message(MESSAGES[ON]))
+                print(f"Took {time.ticks_ms() - t0} ms to notify ON (1)")
             except Exception as e:
-                print(f"writing error {e}")
-                continue
+                print(f"Took {time.ticks_ms() - t0} ms to notify ON (2)")
+                
+            await asyncio.sleep_ms(DEPTH_PULSE_LENGTH_MS)
+            
+            try:
+                t0 = time.ticks_ms()
+                await characteristic.notify(connection, self.encode_message(MESSAGES[OFF]))
+                print(f"Took {time.ticks_ms() - t0} ms to notify OFF (1)")
+            except Exception as e:
+                print(f"Took {time.ticks_ms() - t0} ms to notify OFF (2)")
+            
+            await asyncio.sleep_ms(DEPTH_OFF_MS)
 
     async def run_transmitter_mode(self):
         """ Run the transmitter mode """
