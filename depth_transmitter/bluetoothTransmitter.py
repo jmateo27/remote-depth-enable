@@ -23,8 +23,8 @@ ON = 0
 MESSAGES = ["O"]
 
 class Bluetooth_Transmitter:
-    def __init__(self, event):
-        self.event = event
+    def __init__(self, shared):
+        self.shared = shared
 
     def encode_message(self, message):
         """ Encode a message to bytes """
@@ -32,27 +32,29 @@ class Bluetooth_Transmitter:
 
     async def send_data_task(self, connection, characteristic):
         """ Send data to the connected device """
-        while True:
-
-            # Checks to see if able to send data at all
-            if not connection:
-                print("error - no connection in send data")
-                continue
-
-            if not characteristic:
-                print("error no characteristic provided in send data")
-                continue
-
+        current_source = 0
+        incorrect_source = True
+        count = 0
+        while True:            
             # Idle until event is set
-            await self.event.wait()
-            self.event.clear() # Un-set the event for future use
+            while incorrect_source:
+                await self.shared["event"].wait()
+                self.shared["event"].clear() # Un-set the event for future use
+                if self.shared["pulse_source"] == current_source:
+                    incorrect_source = False
+                    current_source = 1 if current_source == 0 else 0
+            
+            incorrect_source = True
                 
             try:
                 t0 = time.ticks_ms()
                 await characteristic.notify(connection, self.encode_message(MESSAGES[ON]))
                 print(f"Took {time.ticks_ms() - t0} ms to notify ON (1)")
             except Exception as e:
-                print(f"Took {time.ticks_ms() - t0} ms to notify ON (2)")
+                print(f"Took {time.ticks_ms() - t0} ms to notify ON #{count} from {1 - current_source}")
+            
+            count += 1
+            self.shared["event"].clear() # Un-set the event for future use
 
     async def run_transmitter_mode(self):
         """ Run the transmitter mode """

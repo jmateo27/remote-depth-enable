@@ -4,10 +4,13 @@ from bluetoothTransmitter import Bluetooth_Transmitter
 
 async def main():
     """ Main function """
-    event = asyncio.Event()
-    bt_transmitter = Bluetooth_Transmitter(event)
-    tof1 = TOF_Interface(event, 0)
-    tof2 = TOF_Interface(event, 1)
+    shared = {
+        "event": asyncio.Event(),
+        "pulse_source": None
+    }
+    bt_transmitter = Bluetooth_Transmitter(shared)
+    tof1 = TOF_Interface(shared, 0)
+    tof2 = TOF_Interface(shared, 1)
     while True:
         tasks = [
             asyncio.create_task(bt_transmitter.run_transmitter_mode()),

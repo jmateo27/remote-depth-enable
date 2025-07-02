@@ -19,8 +19,9 @@ STATIONARY_TOLERANCE_CM = STEP_SIZE_CM * 0.7
 MAX_MEASUREMENT_M = 2.5
 
 class TOF_Interface:
-    def __init__(self, event, i2c_id):
+    def __init__(self, shared, i2c_id):
         self.id = i2c_id
+        self.shared = shared
         self.i2c = I2C(id=i2c_id, sda=Pin(I2C_SDA_PINS[i2c_id]), scl=Pin(I2C_SCL_PINS[i2c_id]))
         self.tof = VL53L0X(self.i2c)
         self.tof.set_measurement_timing_budget(40000)
@@ -29,8 +30,7 @@ class TOF_Interface:
         self.isShortRange = True
         self.RANGE_THRESHOLD = 0.3
         self.MEASUREMENT_BUFFER_MS = 20
-        self.SAMPLING_BUFFER_MS = 25
-        self.event = event
+        self.SAMPLING_BUFFER_MS = 40
 
     def setShortRange(self):
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 12)
@@ -71,7 +71,8 @@ class TOF_Interface:
         return average
 
     async def sendPulse(self):
-        self.event.set()
+        self.shared["pulse_source"] = self.id
+        self.shared["event"].set()
 
     async def run_tof(self):
         if self.id == I2C1_ID:
@@ -97,7 +98,7 @@ class TOF_Interface:
                 and (cur_avg < MAX_MEASUREMENT_M)
             ):      
                 await self.sendPulse()
-                print((cur_avg - prev_pulse_avg))
+#                 print((cur_avg - prev_pulse_avg))
                 prev_pulse_avg = cur_avg
 #                 print(f'Pulse at {round(((cur_avg - baseline) * CM_PER_M) / STEP_SIZE_CM)}')
 
@@ -116,7 +117,7 @@ class TOF_Interface:
 
             elapsed = ticks_ms() - t0
 
-            asyncio.sleep_ms(max(0, self.SAMPLING_BUFFER_MS - elapsed))
+            await asyncio.sleep_ms(max(0, self.SAMPLING_BUFFER_MS - elapsed))
                 
             
 
