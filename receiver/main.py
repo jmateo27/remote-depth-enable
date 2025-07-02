@@ -18,9 +18,9 @@ BLE_WINDOW = 10000
 DEPTH_INTERVAL_ON_MS = 200
 POLLING_LATENCY_MS = 20
 
-ON = 1
-OFF = 0
-MESSAGES = ["DepthOFF", "DepthON"]
+ON = 0
+# OFF = 0
+MESSAGES = ["O"]
 
 def decode_message(message):
     """ Decode a message from bytes """
@@ -58,7 +58,7 @@ async def receive_data_task(characteristic):
 
             # If depth is high, we may want to lower it based on timeout or OFF
             if depthHigh and (
-                curr_msg == MESSAGES[OFF] or ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS
+                ticks_diff(ticks_ms(), timer_start) >= DEPTH_INTERVAL_ON_MS
             ):
                 print("Depth low.")
                 process.setDepthLow()
