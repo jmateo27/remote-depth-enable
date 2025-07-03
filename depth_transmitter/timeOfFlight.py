@@ -29,10 +29,12 @@ class TOF_Interface:
     def setShortRange(self):
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 12)
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[1], 8)
+        self.tof.set_measurement_timing_budget(20000)
 
     def setLongRange(self):
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[0], 18)
         self.tof.set_Vcsel_pulse_period(self.tof.vcsel_period_type[1], 14)
+        self.tof.set_measurement_timing_budget(20000)
         
     async def getRawMeasurement(self):
         out = (await self.tof.ping() / 1000.0)
