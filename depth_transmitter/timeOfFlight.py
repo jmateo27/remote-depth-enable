@@ -38,16 +38,11 @@ class TOF_Interface:
         
     async def getRawMeasurement(self):
         out = (await self.tof.ping() / 1000.0)
-#         if self.isShortRange:
-#             out -= 0.025
         if self.id == 1:
             out += 0.005
         return out
             
     async def run_tof(self):
-        if self.id == I2C1_ID:
-            await asyncio.sleep_ms(18)
-
         self.setShortRange()
         self.isShortRange = True
         
@@ -57,22 +52,22 @@ class TOF_Interface:
         print(f"Baseline: {(baseline*100):.3f} cm")
 
         while True:
+            await self.shared["tofs_event"][self.id].wait()
+            self.shared["tofs_event"][self.id].clear()
+
             measurement = await self.getRawMeasurement()
 
             if measurement < MAX_MEASUREMENT_M:
-#                 print(f"Valid measurement: {measurement*100}cm, sensor {self.id}")
                 self.shared["reading"] = measurement - baseline
                 self.shared["new_reading"].set()
 
                 if self.isShortRange:
                     if measurement > self.RANGE_THRESHOLD:
-#                         print("Switching to long range")
                         self.setLongRange()
                         self.isShortRange = False
                         self.rolling_buffer.clear()
                 else:
                     if measurement <= self.RANGE_THRESHOLD:
-#                         print("Switching to short range")
                         self.setShortRange()
                         self.isShortRange = True
                         self.rolling_buffer.clear()
