@@ -11,4 +11,5 @@ class TOF_Scheduler:
         while True:
             for i in range(NUM_TOFS):
                 self.shared["tofs_event"][i].set()
-                await asyncio.sleep_ms(STAGGER_MS)
+                if NUM_TOFS > 1:
+                    await asyncio.sleep_ms(STAGGER_MS)
